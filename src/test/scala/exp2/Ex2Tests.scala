@@ -1,14 +1,13 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp2
 
 import org.specs2._
 import matcher._
 import org.specs2.specification.Fragments
 
-/**
- * Created by IntelliJ IDEA.
- * User: Thomas Geier
- * Date: 8/29/13
- */
 class Ex2Tests extends Specification with Ex2Matchers {
 
   def is: Fragments =
@@ -26,12 +25,4 @@ class Ex2Tests extends Specification with Ex2Matchers {
      val mapped = Ex2.values(1,2,3).map(f).logAs("i").logAs("j")
      mapped.run.toList === List(Seq("2","2"), Seq("3","3"), Seq("4","4")) and cnt === 3
    }
-//  ^
-//   "larger tests" ! {
-//     val exp = for{
-//       i <- Ex2.values(1,2) logAs "i"
-//       j <- Ex2.values(10,11) logAs "j"
-//     } yield (i to j)
-//     exp.run.toList === "foo"
-//   }
 }

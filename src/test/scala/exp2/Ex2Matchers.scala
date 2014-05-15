@@ -1,12 +1,11 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp2
 
 import org.specs2.matcher._
 
-/**
- * Created by IntelliJ IDEA.
- * User: Thomas Geier
- * Date: 8/30/13
- */
 trait Ex2Matchers {
   import TraversableMatchers._
   def haveEqualTrials[U](other: Seq[U]): Matcher[Ex2[_,U]] =

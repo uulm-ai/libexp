@@ -1,12 +1,10 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp.reporter
 
 import scala.language.implicitConversions
-
-/**
- * @author Thomas Geier
- * @since 6/16/13
- */
-
 
 trait Reporter[-A]{ outer =>
   def header: String = prefix + colNames.mkString(separator)

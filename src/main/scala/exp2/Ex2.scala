@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp2
 
 /**

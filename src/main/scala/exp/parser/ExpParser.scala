@@ -1,13 +1,12 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp.parser
 
 import scala.util.parsing.combinator.JavaTokenParsers
 import exp.Exp
 
-/**
- * Created by IntelliJ IDEA.
- * User: Thomas Geier
- * Date: 8/27/13
- */
 trait ExpParser extends JavaTokenParsers {
   def boolP: Parser[Boolean] = ("true" | "TRUE" | "T") ^^ (_ => true) | ("false" | "FALSE" | "F") ^^ (_ => false)
   def intP: Parser[Int] = wholeNumber ^^ (_.toInt)

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp
 
 import reporter.Reporter
@@ -5,11 +9,7 @@ import Reporter._
 import scala.collection.generic.FilterMonadic
 import java.lang.management.ManagementFactory
 
-/**
- * @author Thomas Geier
- * @since 6/21/13
- */
-
+/** The Experimentation Monad. */
 trait Exp[B] { outer =>
   protected def generator: Iterable[(B,Reporter[B])]
   /** @return true, if calling `next` on an obtained iterator will destroy the last result. */

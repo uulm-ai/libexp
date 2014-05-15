@@ -1,8 +1,12 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp2
 
 /**
  * A report can map an individual of type `L` onto a series of statistics. It also provides the name of these statistics.
- * @tparam H The currently exposed type.
+ * @tparam U The currently exposed type.
  */
 case class Rep[U](columnNames: Seq[String], reports: Seq[U => String]) extends (U => Seq[String]){
   def apply(x: U): Seq[String] = reports.map(f => f(x))

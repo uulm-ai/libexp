@@ -1,12 +1,11 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp
 
 import org.specs2.Specification
 import java.lang.management.ManagementFactory
-
-/**
- * @author Thomas Geier
- * @since 6/22/13
- */
 
 class ExpTest extends Specification {
   def is =

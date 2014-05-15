@@ -1,14 +1,13 @@
+/*
+ * Copyright (c) year Thomas Geier. This source code may be used under the MIT license.
+ */
+
 package exp2
 
 import org.specs2._
 import org.specs2.specification.Fragments
 import org.specs2.matcher.{MatchResult, Expectable, Matcher}
 
-/**
- * Created by IntelliJ IDEA.
- * User: Thomas Geier
- * Date: 8/30/13
- */
 class Ex2ParallelTest extends Specification with Ex2Matchers {
 
   def beOrderedBy[A,S: Ordering,G](ordered: A => S, group: A => G = (_: A) => 0): Matcher[Seq[A]] = new Matcher[Seq[A]]{
