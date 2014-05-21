@@ -16,6 +16,10 @@ sealed trait Ex2[A,U]{
   def iterable: Iterable[U]
   def reporter: Rep[U]
   def extract: U => A
+  /**
+   * @return For each value `A` a sequence of strings corresponding to to the values of the columns of the report.
+   */
+  def run: Iterator[Seq[String]]
 
   //build experiment using monadic operations
   def map[B](f: A => B): Ex2[B, (B,U)]
@@ -36,12 +40,7 @@ sealed trait Ex2[A,U]{
   /**
    * @return A list of column names.
    */
-  def colNames: Seq[String]
-
-  /**
-   * @return For each value `A` a sequence of strings corresponding to to the values of the columns of the report.
-   */
-  def run: Iterator[Seq[String]]
+  def colNames: Seq[String] = reporter.columnNames
 
   def printCSV(): Unit = {
     println(colNames.mkString("\t"))
@@ -93,9 +92,6 @@ private case class Ex2Par[H, U](reporter: Rep[U], pIterable: scala.collection.pa
    */
   def log(colName: String, f: (H) => String): Ex2[H, U] = copy(reporter = reporter.addColumn(colName,f compose extract))
 
-  //produce results
-  def colNames: Seq[String] = reporter.columnNames
-
   def run: Iterator[Seq[String]] = pIterable.view.map(reporter).force.iterator
 
   def iterable: Iterable[U] = pIterable.seq
@@ -133,9 +129,6 @@ private case class Ex2Seq[H, U](reporter: Rep[U], iterable: Iterable[U], extract
    * @return An experiment with the column added.
    */
   def log(colName: String, f: (H) => String): Ex2[H, U] = copy(reporter = reporter.addColumn(colName,f compose extract))
-
-  //produce results
-  def colNames: Seq[String] = reporter.columnNames
 
   def run: Iterator[Seq[String]] = iterable.map(reporter).iterator
 
