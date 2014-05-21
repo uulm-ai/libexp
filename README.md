@@ -17,3 +17,11 @@ when used within a parser environment.
     }
 
 This parses for example `grid(1,{2,3,4},[2:6])`.
+
+Usage
+-----
+To use the library, add the following lines to your `.sbt` file:
+
+    resolvers += "tgeier repository" at "http://companion.informatik.uni-ulm.de/~tgeier/mvn"
+    
+    libraryDependencies += "de.uni-ulm" % "libexp_2.11" % "1.4.1"
