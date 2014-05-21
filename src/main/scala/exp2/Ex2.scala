@@ -69,20 +69,20 @@ private case class Ex2Par[H, U](reporter: Rep[U], pIterable: scala.collection.pa
   def zip[B, BU](other: Ex2[B, BU]): Ex2[(H, B), (U, BU)] = other match {
     case Ex2Par(oRep,opIt,oExtract) => Ex2Par(
       reporter zip oRep,
-      for(u <- pIterable.view; bu <- opIt.view) yield (u,bu),
+      (for (u <- pIterable; bu <- opIt) yield (u, bu))(collection.breakOut),
       (hb: (U,BU)) => (extract(hb._1),oExtract(hb._2))
   )
     case Ex2Seq(oRep,opIt,oExtract) => Ex2Par(
       reporter zip oRep,
-      for(u <- pIterable.view; bu <- opIt.view) yield (u,bu),
+      (for (u <- pIterable; bu <- opIt.view) yield (u, bu))(collection.breakOut),
       (hb: (U,BU)) => (extract(hb._1),oExtract(hb._2))
     )
   }
 
   //build experiment using monadic operations
-  def map[B](f: (H) => B): Ex2[B, (B,U)] = Ex2Par[B,(B,U)](reporter.comap(_._2),pIterable.view.map(u => (f(extract(u)),u)),_._1)
+  def map[B](f: (H) => B): Ex2[B, (B,U)] = Ex2Par[B,(B,U)](reporter.comap(_._2),pIterable.map(u => (f(extract(u)),u))(collection.breakOut),_._1)
 
-  def withFilter(p: (H) => Boolean): Ex2[H, U] = copy(pIterable= pIterable.view.filter(p compose extract))
+  def withFilter(p: (H) => Boolean): Ex2[H, U] = copy(pIterable=pIterable.filter(p compose extract).par)
 
   /**
    * Extend the report by another column.
@@ -92,13 +92,13 @@ private case class Ex2Par[H, U](reporter: Rep[U], pIterable: scala.collection.pa
    */
   def log(colName: String, f: (H) => String): Ex2[H, U] = copy(reporter = reporter.addColumn(colName,f compose extract))
 
-  def run: Iterator[Seq[String]] = pIterable.view.map(reporter).force.iterator
+  def run: Iterator[Seq[String]] = pIterable.map(reporter).iterator
 
   def iterable: Iterable[U] = pIterable.seq
 
   def flatMap[B](f: (H) => Iterable[B]): Ex2[B, (B, U)] = Ex2Par(
     reporter.comap(_._2),
-    for(u <- pIterable.view; b <- f(extract(u)).view) yield(b,u),
+    (for (u <- pIterable; b <- f(extract(u)).view) yield (b, u))(collection.breakOut),
     _._1
   )
 }
@@ -107,7 +107,7 @@ private case class Ex2Seq[H, U](reporter: Rep[U], iterable: Iterable[U], extract
   def zip[B, BU](other: Ex2[B, BU]): Ex2[(H, B), (U, BU)] = other match {
     case Ex2Par(oRep,opIt,oExtract) => Ex2Par(
       reporter zip oRep,
-      for(bu <- opIt.view; u <- iterable.view) yield (u,bu), //make sure flatMap is called on the parallel collection
+      (for (bu <- opIt; u <- iterable.view) yield (u, bu))(collection.breakOut), //make sure flatMap is called on the parallel collection
       (hb: (U,BU)) => (extract(hb._1),oExtract(hb._2))
     )
     case Ex2Seq(oRep,opIt,oExtract) => Ex2Seq(
