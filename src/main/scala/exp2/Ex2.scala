@@ -48,6 +48,7 @@ sealed trait Ex2[A,U]{
   }
 
   def cross[B,BU](other: Ex2[B,BU]): Ex2[(A,B),(U,BU)] = zip(other)
+//  def concat[B,BU](other: Ex2[B,BU]): Ex2[Either[A,B],Either[U,BU]]
 
   /** @return The experiment logging the currently exposed value using its toString method. */
   def logAs(colName: String): Ex2[A, U] = log(colName, _.toString)

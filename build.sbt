@@ -23,4 +23,6 @@ scalaVersion := "2.11.0"
 
 libraryDependencies += "org.scala-lang.modules" % "scala-parser-combinators_2.11" % "1.0.1"
 
+libraryDependencies += "com.github.scopt" % "scopt_2.11" % "3.2.0"
+
 libraryDependencies += "org.specs2" % "specs2_2.11" % "2.3.12" % "test"
