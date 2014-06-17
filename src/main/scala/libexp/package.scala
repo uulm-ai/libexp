@@ -18,9 +18,5 @@ package object libexp {
   }
   def randSeed(n: Long, start: Long, name: Option[String] = None): ND[Random, (Long, Unit)] =
     seed(n,start,name).map(new Random(_))
-
-  implicit class RichND[E,T](val nd: ND[E,T]) extends AnyVal {
-    def expand[E2](f: E => Iterable[E2]) = nd cross sequential()
-  }
 }
 
