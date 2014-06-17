@@ -15,8 +15,8 @@ case class ParTup[A,U](values: Iterable[(A,U)], reporter: Report[(A,U)]) extends
   override def run: Iterable[Seq[String]] = values.map(reporter.apply)
   override def names: Seq[String] = reporter.names
 
-  override def report(name: String, f: (A) => String): TRMap =
-    this.copy(reporter = reporter + (name, PartialFunction(f compose (_._1))))
+  override def addReport(r: (String, PartialFunction[A, String])): TRMap =
+    this.copy(reporter = reporter + (r._1, Report.composePF(PartialFunction[(A,U),A](_._1), r._2)))
 
   override def map[B](f: (A) => B): TMap[B] =
     ParTup(values.view.map{case (a,u) => (f(a),(a,u))}, reporter.comap(PartialFunction((_: (B,(A,U)))._2)))
