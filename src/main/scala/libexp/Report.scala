@@ -4,7 +4,7 @@
 
 package libexp
 
-case class Report[A](columns: Seq[(String,PartialFunction[A,String])]){
+case class Report[-A](columns: Seq[(String,PartialFunction[A,String])]){
   def names: Seq[String] = columns.map(_._1)
   def apply(a: A): Seq[String] = columns.map(_._2.applyOrElse(a, (_:A) => "NA"))
   def comap[B](f: PartialFunction[B,A]): Report[B] =
@@ -13,7 +13,7 @@ case class Report[A](columns: Seq[(String,PartialFunction[A,String])]){
     require((other.names.toSet intersect names.toSet).isEmpty, "adding duplicate columns")
     Report(columns ++ other.columns)
   }
-  def +(x: (String, PartialFunction[A,String])): Report[A] = Report(columns :+ x)
+  def +[B <: A](x: (String, PartialFunction[B,String])): Report[B] = Report(columns :+ x)
   def and[O](other: Report[O]): Report[(A,O)] =
     this.comap(PartialFunction((_:(A,O))._1)) ++ other.comap(PartialFunction(_._2))
   def or[O](other: Report[O]): Report[Either[A,O]] =
