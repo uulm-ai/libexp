@@ -20,8 +20,8 @@ case class ParTup[A,U](values: Iterable[(A,U)], reporter: Report[(A,U)]) extends
 
   override def map[B](f: (A) => B): TMap[B] =
     ParTup(values.view.map{case (a,u) => (f(a),(a,u))}, reporter.comap(PartialFunction((_: (B,(A,U)))._2)))
-
   override def flatMap[B,R](f: A => B)(implicit ev: TFMap[B,R]): R = ev.flatMap(this,f)
+  override def withFilter(f: (A) => Boolean): TRet = this.copy(values = values.view.filter(x => f(x._1)))
 }
 
 trait PTFMap[A,U,B,R]{

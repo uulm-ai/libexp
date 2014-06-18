@@ -17,6 +17,7 @@ trait Exp[A]{
   def names: Seq[String]
   def map[B](f: A => B): TMap[B]
   def flatMap[B,R](f: A => B)(implicit ev: TFMap[B,R]): R
+  def withFilter(f: A => Boolean): TRet
 
   //implemented methods
   def report(name: String, f: A => String = _.toString): TRet = addReport((name,PartialFunction(f)))
