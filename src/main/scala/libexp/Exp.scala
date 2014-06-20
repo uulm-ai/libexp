@@ -8,15 +8,15 @@ import java.io.PrintStream
 
 trait Exp[A]{
   /** Return type after trivial modifications. */
-  type TRet
-  type TMap[_]
-  type TFMap[_,_]
+  type TRet <: Exp[A]
+  type TMap[B] <: Exp[B]
+  type TFMap[B,R <: Exp[B]]
 
   def run: Iterable[Seq[String]]
   def addReport(r: (String, PartialFunction[A,String])): TRet
   def names: Seq[String]
   def map[B](f: A => B): TMap[B]
-  def flatMap[B,R](f: A => B)(implicit ev: TFMap[B,R]): R
+  def flatMap[B,R <: Exp[B]](f: A => B)(implicit ev: TFMap[B,R]): R
   def withFilter(f: A => Boolean): TRet
 
   //implemented methods
