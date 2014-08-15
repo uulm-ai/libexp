@@ -4,9 +4,15 @@
 
 package libexp
 
-case class Report[-A](columns: Seq[(String,PartialFunction[A,String])]){
+/** Represents a column-oriented report generator.
+  * Contains column names, and functions mapping values to the table entries.
+  *
+  * @param columns For each column, the name and the function producing the entry.
+  * @param naString The string to use when a table entry cannot be produced.
+  * @tparam A The type for which the report can be produced. */
+case class Report[-A](columns: Seq[(String,PartialFunction[A,String])], naString: String = "NA"){
   def names: Seq[String] = columns.map(_._1)
-  def apply(a: A): Seq[String] = columns.map(_._2.applyOrElse(a, (_:A) => "NA"))
+  def apply(a: A): Seq[String] = columns.map(_._2.applyOrElse(a, (_:A) => naString))
   def comap[B](f: PartialFunction[B,A]): Report[B] =
     Report(columns.map{case (n,g) => (n, Report.composePF(f,g))})
   def ++[O <: A](other: Report[O]): Report[O] = {

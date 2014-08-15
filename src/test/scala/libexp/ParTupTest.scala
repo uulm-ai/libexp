@@ -7,9 +7,6 @@ package libexp
 import org.specs2.Specification
 import org.specs2.specification.Fragments
 
-/**
- * Created by thomas on 17.06.14.
- */
 class ParTupTest extends Specification {
   override def is: Fragments =
     "simple experiment" ! {

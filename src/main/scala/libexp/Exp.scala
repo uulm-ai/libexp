@@ -6,10 +6,15 @@ package libexp
 
 import java.io.PrintStream
 
+/** A non-deterministic computation, exposing a result of type `A`.
+  * The computation can be extended by either chaining functions using `map`, or
+  * by branching using `flatMap`. */
 trait Exp[A]{
   /** Return type after trivial modifications. */
   type TRet <: Exp[A]
+  /** Return type after mapping to type `B`. */
   type TMap[B] <: Exp[B]
+  /** Return type after `flatMap` to type `R`. */
   type TFMap[B,R <: Exp[B]]
 
   def run: Iterable[Seq[String]]

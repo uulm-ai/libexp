@@ -4,9 +4,9 @@
 
 package libexp
 
-/**
- * Created by thomas on 17.06.14.
- */
+/** A simple implementation of `Exp[_]`.
+  * @tparam A The exposed type.
+  * @tparam U The type of the complete row entry. */
 case class ParTup[A,U](values: Iterable[(A,U)], reporter: Report[(A,U)]) extends Exp[A]{
   override type TRet = ParTup[A,U]
   override type TMap[B] = ParTup[B,(A,U)]
@@ -29,6 +29,7 @@ trait PTFMap[A,U,B,R]{
 }
 object PTFMap {
   //maybe simpler implementation when returning ParTup[B,((B,BU),(A,AU))]
+  //using this implementation, the reporter is called several times on the same value (on the As)
   implicit def ptfmap[A,U,B, BU, R] = new PTFMap[A,U,ParTup[B, BU], ParTup[B, (BU, (A, U))]] {
     override def flatMap(pt: ParTup[A,U], f: (A) => ParTup[B, BU]): ParTup[B, (BU, (A, U))] = {
       val unflattened: Iterable[(ParTup[B, BU], (A, U))] = pt.values.view.map { case t@(a, _) => (f(a), t)}
