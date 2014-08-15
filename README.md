@@ -3,6 +3,8 @@ libexp
 
 A library for constructing computational experiments.
 
+[![Build Status](https://secure.travis-ci.org/uulm-ai/libexp.svg?branch=master)](http://travis-ci.org/uulm-ai/libexp)
+
 Example usage of the parser
 ---------------------------
 You can lift a parser into the `PExpT` monad with `.lift`. 
