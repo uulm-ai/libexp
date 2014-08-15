@@ -3,7 +3,7 @@ libexp
 
 A library for constructing computational experiments.
 
-![Travis-CI build status](https://travis-ci.org/uulm-ai/libexp.svg?branch=master)
+[![Build Status](https://secure.travis-ci.org/uulm-ai/libexp.svg?branch=master)](http://travis-ci.org/uulm-ai/libexp)
 
 Example usage of the parser
 ---------------------------
