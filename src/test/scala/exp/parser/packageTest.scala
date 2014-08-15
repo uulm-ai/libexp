@@ -8,7 +8,7 @@ import org.specs2._
 import org.specs2.specification.Fragments
 import exp.Exp
 
-class package$Test extends Specification with matcher.ParserMatchers{
+class packageTest extends Specification with matcher.ParserMatchers{
 
   object parsers extends ExpParser {
     def pSum = parsers.intExp ~ (literal("+") ~ parsers.intExp)
@@ -34,6 +34,8 @@ class package$Test extends Specification with matcher.ParserMatchers{
     "target syntax" !
       ((for(x1 ~~ x2 <- ((parsers.intExp <~ "+") ~ parsers.intExp).lift) yield x1 + x2).run must succeedOn("[1:2] + [2:3]").withResult(Exp.values(3,4,4,5))) ^
      "target syntax, three parts" !
-      ((for(x1 ~~ x2 ~~ x3 <- ((parsers.intExp <~ "+") ~ (parsers.intExp <~ "+") ~ parsers.intExp).lift) yield x1 + x2).run must succeedOn("[1:2] + [2:3] + [4:5]").withResult(Exp.values(7,8,8,9,8,9,9,10)))
+      (
+        (for(x1 ~~ x2 ~~ x3 <- ((parsers.intExp <~ "+") ~ (parsers.intExp <~ "+") ~ parsers.intExp).lift) yield x1 + x2 + x3).run must
+          succeedOn("[1:2] + [2:3] + [4:5]").withResult(Exp.values(7,8,8,9,8,9,9,10)))
 
 }
