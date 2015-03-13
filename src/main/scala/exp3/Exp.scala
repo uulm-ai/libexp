@@ -8,7 +8,10 @@ import org.parboiled2._
 import scopt.{Read, OptionParser}
 import shapeless.HList._
 import shapeless.ops.hlist.{Comapped, ToTraversable}
+import shapeless.ops.traversable.FromTraversable
+import shapeless.syntax.std.traversable._
 import shapeless.{:: => :::, HList, HNil}
+import shapeless.syntax.typeable._
 
 import scala.language.reflectiveCalls
 import scala.util.{Try, Random}
@@ -46,11 +49,12 @@ trait InputNode[T] extends ValuedNode[T] {
     p.nd.run()
   }
 
-  def install(parser: OptionParser[Map[String, NonDeterminism[_]]]): Unit = {
+  /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
+  def install(parser: OptionParser[Map[Node, NonDeterminism[_]]]): Unit = {
     implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parse(s).get)
     parser
       .opt[NonDeterminism[T]](name)
-      .action{case (si,m) => m + (name -> si)}
+      .action{case (si,m) => m + (this -> si)}
       .text(s"$name; default is $default" + (if(fixed) "; the value is fixed" else ""))
   }
 }
@@ -59,15 +63,20 @@ trait InputNode[T] extends ValuedNode[T] {
   * The computation might require resources. */
 sealed trait ComputedNode[DN <: HList,D <: HList,T] extends ValuedNode[T] {
   implicit def unwrap: Comapped.Aux[DN,ValuedNode,D]
+  implicit def lub: ToTraversable.Aux[DN, List, Node]
+  implicit def fromT: FromTraversable[D]
   def dependencies: DN
   def computation: D => T
+  def predecessors: Seq[Node] = dependencies.toList[Node]
+  def compute(args: Seq[Any]): T = computation(args.toHList[D].get)
 }
 
 case class Computation[DN <: HList, D <: HList, T](name: String, dependencies: DN)
                                                   (val computation: D => T)
-                                                  (implicit val unwrap: Comapped.Aux[DN,ValuedNode,D], val lub: ToTraversable.Aux[DN, List, Node]) extends ComputedNode[DN,D,T] {
-  def predecessors: Seq[Node] = dependencies.toList[Node]
-
+                                                  (implicit
+                                                   val unwrap: Comapped.Aux[DN,ValuedNode,D],
+                                                   val lub: ToTraversable.Aux[DN, List, Node],
+                                                   val fromT: FromTraversable[D]) extends ComputedNode[DN,D,T] {
   override def toString: String = s"Computation($name)"
 }
 
@@ -80,14 +89,14 @@ object Experiment {
     println(s"inputs: $inputs")
     val p  = parser(inputs.toSet)
     println(p.showUsage)
-    val parseResult = p.parse(args,inputs.map(i => i.name -> i.defaultND).toMap)
+    val parseResult = p.parse(args,inputs.map(i => i -> i.defaultND).toMap)
     println(parseResult)
 
     parseResult.foreach(simpleDriver(graph,_))
   }
 
   def parser(inputs: Set[InputNode[_]]) = {
-    val p = new OptionParser[Map[String,NonDeterminism[_]]]("foo"){
+    val p = new OptionParser[Map[Node,NonDeterminism[_]]]("foo"){
       head("foo", "v0.0")
     }
     inputs.foreach(_.install(p))
@@ -104,9 +113,24 @@ object Experiment {
     closure.map(n => n -> preds(n))(collection.breakOut)
   }
 
-  def simpleDriver(graph: Map[Node,Set[Node]], nondet: Map[String,NonDeterminism[_]]): Unit = {
-    val to = topo(graph)
+  def simpleDriver(graph: Map[Node,Set[Node]], nondet: Map[Node,NonDeterminism[_]]): Unit = {
+    val to: Seq[Node] = topo(graph)
     println(s"topological ordering:\n\t$to")
+
+    val firstValuation: Map[Node, Any] = nondet.map{case (n,Fixed(x)) => n -> x}
+
+    def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
+      to.foldLeft(valuation){
+        case (m,_:InputNode[_])      => m
+        case (m,cn: ComputedNode[_,_,_]) =>
+          val args: Seq[Any] = cn.predecessors.map(m)
+          val result = cn.compute(args)
+          m + (cn -> result)
+
+      }
+    }
+
+    println(evaluate(firstValuation))
   }
 
   /** Construct a topological ordering of the given graph.
