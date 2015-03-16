@@ -80,8 +80,12 @@ case class Computation[DN <: HList, D <: HList, T](name: String, dependencies: D
                                                   (implicit
                                                    val unwrap: Comapped.Aux[DN,ValuedNode,D],
                                                    val lub: ToTraversable.Aux[DN, List, Node],
-                                                   val fromT: FromTraversable[D]) extends ComputedNode[DN,D,T] {
+                                                   val fromT: FromTraversable[D]) extends ComputedNode[DN,D,T] { outer =>
   override def toString: String = s"Computation($name)"
+  def report(colName: String, f: T => String) = new Computation(name,dependencies)(computation){
+    /** The columns produced by this node. */
+    override def columns: Seq[(String, T => String)] = outer.columns :+ (colName, f)
+  }
 }
 
 case class Experiment(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]])
@@ -188,6 +192,8 @@ object Test {
     val problem = Computation("problem", width :: seed :: HNil)({
       x => Problem(x.head, x.tail.head)
     }: Int ::: Long ::: HNil => Problem)
+      .report("foo", p => (p.s + p.w).toString)
+
     Experiment.run(Set(problem), args)
   }
 }
