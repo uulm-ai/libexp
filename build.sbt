@@ -32,4 +32,6 @@ libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.0"
 
 libraryDependencies += "org.specs2" % "specs2_2.11" % "2.3.12" % "test"
 
+resolvers += "mvn@mirkwood" at "http://mirkwood.informatik.uni-ulm.de/mvn"
+
 libraryDependencies += "de.uni-ulm" %% "vultura-util" % "23.1.1"
