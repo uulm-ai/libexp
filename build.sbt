@@ -31,3 +31,5 @@ libraryDependencies += "com.chuusai" %% "shapeless" % "2.1.0"
 libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.0"
 
 libraryDependencies += "org.specs2" % "specs2_2.11" % "2.3.12" % "test"
+
+libraryDependencies += "de.uni-ulm" %% "vultura-util" % "23.1.1"

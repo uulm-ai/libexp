@@ -15,6 +15,7 @@ case class IntP(name: String, default: Int,
     override def nd: Rule1[NonDeterminism[Int]] = rule { capture(Digits) ~> ((d: String) => Fixed(d.toInt)) }
   }
 }
+
 case class LongP(name: String,
                  default: Long,
                  min: Long = Long.MinValue,

@@ -12,6 +12,7 @@ import shapeless.ops.traversable.FromTraversable
 import shapeless.syntax.std.traversable._
 import shapeless.{:: => :::, HList, HNil}
 import shapeless.syntax.typeable._
+import vultura.util.DomainCPI
 
 import scala.language.reflectiveCalls
 import scala.util.{Try, Random}
@@ -50,13 +51,16 @@ trait InputNode[T] extends ValuedNode[T] {
   }
 
   /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
-  def install(parser: OptionParser[Map[Node, NonDeterminism[_]]]): Unit = {
+  def install(parser: OptionParser[Map[InputNode[_], NonDeterminism[_]]]): Unit = {
     implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parse(s).get)
     parser
       .opt[NonDeterminism[T]](name)
       .action{case (si,m) => m + (this -> si)}
       .text(s"$name; default is $default" + (if(fixed) "; the value is fixed" else ""))
   }
+
+  /** The columns produced by this node. */
+  override val columns: Seq[(String, T => String)] = Seq(name -> (_.toString))
 }
 
 /** A computed node depends on some other nodes to compute it's value.
@@ -80,6 +84,8 @@ case class Computation[DN <: HList, D <: HList, T](name: String, dependencies: D
   override def toString: String = s"Computation($name)"
 }
 
+case class Experiment(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]])
+
 object Experiment {
   /** print the csv */
   def run(nodes: Set[Node], args: Seq[String]): Unit = {
@@ -92,11 +98,15 @@ object Experiment {
     val parseResult = p.parse(args,inputs.map(i => i -> i.defaultND).toMap)
     println(parseResult)
 
-    parseResult.foreach(simpleDriver(graph,_))
+    parseResult.foreach { nd =>
+      val (colNames, rows) = simpleDriver(Experiment(graph, nd), new Random(0))
+      println(colNames.mkString("\t"))
+      rows.map(_.mkString("\t")).foreach(println)
+    }
   }
 
   def parser(inputs: Set[InputNode[_]]) = {
-    val p = new OptionParser[Map[Node,NonDeterminism[_]]]("foo"){
+    val p = new OptionParser[Map[InputNode[_],NonDeterminism[_]]]("foo"){
       head("foo", "v0.0")
     }
     inputs.foreach(_.install(p))
@@ -113,11 +123,32 @@ object Experiment {
     closure.map(n => n -> preds(n))(collection.breakOut)
   }
 
-  def simpleDriver(graph: Map[Node,Set[Node]], nondet: Map[Node,NonDeterminism[_]]): Unit = {
-    val to: Seq[Node] = topo(graph)
+  def assignmentSequence(nds: Seq[NonDeterminism[_]], random: Random): Iterator[Seq[Any]] = {
+    val indexToNode: Map[Int, NonDeterminism[_]] = nds.zipWithIndex.map(_.swap).toMap
+    val strats: Seq[Stratification[_]] = nds.collect{case strat: Stratification[_] => strat}
+    val values: Seq[Seq[Any]] = strats.map(_.values)
+    val counter = new DomainCPI(values.map(_.toArray).toArray)
+    counter.iterator.map { stratValues =>
+      val stratMap = (strats zip stratValues).toMap
+      nds.map {
+        case s: Stratification[_]    => stratMap(s)
+        case Fixed(x)                => x
+        case Distribution(sample) => sample(random)
+      }
+    }
+
+  }
+
+  def simpleDriver(exp: Experiment, random: Random): (Seq[String],Seq[Seq[String]]) = {
+    val to: Seq[Node] = topo(exp.graph)
+    val columns: Seq[(ValuedNode[_], Seq[(String, Nothing => String)])] =
+      to.collect{ case vn: ValuedNode[_] if vn.columns.nonEmpty => vn -> vn.columns}
+    val colNames: Seq[String] = columns.flatMap(_._2.map(_._1))
     println(s"topological ordering:\n\t$to")
 
-    val firstValuation: Map[Node, Any] = nondet.map{case (n,Fixed(x)) => n -> x}
+    val ins = to.collect{case in: InputNode[_] => in}
+
+    val assignments: Iterator[Seq[Any]] = assignmentSequence(ins.map(exp.inputND), random)
 
     def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
       to.foldLeft(valuation){
@@ -130,7 +161,14 @@ object Experiment {
       }
     }
 
-    println(evaluate(firstValuation))
+    def buildRow(valuation: Map[Node,Any]): Seq[String] = columns.flatMap{ case (node, cols) =>
+        val value = valuation(node)
+        cols.map(_._2.asInstanceOf[Any => String](value))
+    }
+
+    val evaluations: Iterator[Map[Node, Any]] = assignments.map(vals => (ins zip vals).toMap: Map[Node,Any]).map(evaluate)
+    val csvRows = evaluations.map(buildRow)
+    (colNames, csvRows.toSeq)
   }
 
   /** Construct a topological ordering of the given graph.
