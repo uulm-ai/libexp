@@ -11,7 +11,6 @@ import shapeless.ops.hlist.{Comapped, ToTraversable}
 import shapeless.ops.traversable.FromTraversable
 import shapeless.syntax.std.traversable._
 import shapeless.{:: => :::, HList, HNil}
-import shapeless.syntax.typeable._
 import vultura.util.DomainCPI
 
 import scala.language.reflectiveCalls
@@ -33,6 +32,7 @@ sealed trait ValuedNode[T] extends Node {
 }
 
 trait NDParser[T] extends Parser {
+  def syntaxDescription: String
   def nd: Rule1[NonDeterminism[T]]
   def Digits: Rule[HNil, HNil] = rule { oneOrMore(CharPredicate.Digit) }
 }

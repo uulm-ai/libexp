@@ -6,7 +6,6 @@ package exp3
 
 import scala.util.Random
 
-
 /** Describes the kind of non-determinism to use for an input node of corresponding type. */
 sealed trait NonDeterminism[+T]
 
