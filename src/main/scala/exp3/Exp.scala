@@ -40,23 +40,28 @@ trait NDParser[T] extends Parser {
 /** An InputNode has is a independent variable.
   * It has no dependencies and can be fed compatible values to trigger computations in the successor nodes. */
 trait InputNode[T] extends ValuedNode[T] {
-  def fixed: Boolean
-  def default: T
+  def default: NonDeterminism[T]
   def parser(s: ParserInput): NDParser[T]
-  def defaultND: NonDeterminism[T] = Fixed(default)
 
   def parse(s: String): Try[NonDeterminism[T]] = {
     val p = parser(s)
     p.nd.run()
   }
 
+  /** Replace spaces and dots with '-'. */
+  def toOptionName(s: String): String = s.map{
+    case ' ' => '-'
+    case '.' => '-'
+    case other => other
+  }
+
   /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
   def install(parser: OptionParser[Map[InputNode[_], NonDeterminism[_]]]): Unit = {
     implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parse(s).get)
     parser
-      .opt[NonDeterminism[T]](name)
+      .opt[NonDeterminism[T]](toOptionName(name))
       .action{case (si,m) => m + (this -> si)}
-      .text(s"$name; default is $default" + (if(fixed) "; the value is fixed" else ""))
+      .text(s"$name; default is $default")
   }
 
   /** The columns produced by this node. */
@@ -99,7 +104,7 @@ object Experiment {
     println(s"inputs: $inputs")
     val p  = parser(inputs.toSet)
     println(p.showUsage)
-    val parseResult = p.parse(args,inputs.map(i => i -> i.defaultND).toMap)
+    val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
     println(parseResult)
 
     parseResult.foreach { nd =>
@@ -183,17 +188,4 @@ object Experiment {
       case Some(n) => topo(graph, acc :+ n)
     }
 
-}
-object Test {
-  case class Problem(w: Int, s: Long)
-  def main(args: Array[String]) {
-    val width: ValuedNode[Int] = IntP("width", 2)
-    val seed: ValuedNode[Long] = LongP("seed", 0)
-    val problem = Computation("problem", width :: seed :: HNil)({
-      x => Problem(x.head, x.tail.head)
-    }: Int ::: Long ::: HNil => Problem)
-      .report("foo", p => (p.s + p.w).toString)
-
-    Experiment.run(Set(problem), args)
-  }
 }

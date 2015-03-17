@@ -22,10 +22,10 @@ trait StratParser[T] extends NDParser[T]{
   def singleValueFormat: String
 }
 
-case class IntP(name: String, default: Int,
+case class IntP(name: String,
+                default: NonDeterminism[Int],
                 min: Int = Integer.MIN_VALUE,
-                max: Int = Integer.MAX_VALUE,
-                fixed: Boolean = false) extends InputNode[Int] {
+                max: Int = Integer.MAX_VALUE) extends InputNode[Int] {
   override def parser(s: ParserInput): NDParser[Int] = new StratParser[Int] {
     override def input: ParserInput = s
     override def singleValue: Rule1[Int] = rule { capture(Digits) ~> ((_: String).toInt) }
@@ -36,15 +36,24 @@ case class IntP(name: String, default: Int,
 }
 
 case class LongP(name: String,
-                 default: Long,
+                 default: NonDeterminism[Long],
                  min: Long = Long.MinValue,
-                 max: Long = Long.MaxValue,
-                 fixed: Boolean = false) extends InputNode[Long] {
+                 max: Long = Long.MaxValue) extends InputNode[Long] {
   override def parser(s: ParserInput): NDParser[Long] = new StratParser[Long] {
     override def input: ParserInput = s
     override def singleValue: Rule1[Long] = rule { capture(Digits) ~> ((_: String).toLong) }
     /** Describe syntax of specifying single values. */
     override def singleValueFormat: String = "whole number"
+  }
+}
+
+case class Seed(name: String, default: Distribution[Long] = new Distribution[Long](r => r.nextLong()))
+  extends InputNode[Long]{
+  override val columns: Seq[(String, Long => String)] = Seq(name -> (_.toString))
+  override def parser(s: ParserInput): NDParser[Long] = new NDParser[Long] {
+    override def input: ParserInput = s
+    override def nd: Rule1[NonDeterminism[Long]] = rule { capture(Digits) ~> ((s:String) => Fixed(s.toLong)) }
+    override def syntaxDescription: String = s"provide a long to fix the random seed $name for all runs"
   }
 }
 //case class DoubleP(name: String,
