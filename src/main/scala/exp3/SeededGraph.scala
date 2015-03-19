@@ -11,10 +11,11 @@ import vultura.util.DomainCPI
 
 import scala.util.Random
 
-case class Experiment(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]], baseSeeds: Seq[Long])
+case class Experiment(name: String, nodes: Set[Node])
 
+case class SeededGraph(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]])
 
-case class RunConfig(baseSeeds: Seq[Long], runParallel: Boolean = true)
+case class RunConfig(baseSeeds: Iterable[Long], runParallel: Boolean = true)
 trait Output {
   def out: OutputStream
 }
@@ -23,7 +24,7 @@ case class ExperimentCSV(out: OutputStream, runConfig: RunConfig)
 /** Output a dot version of the computation. */
 case class ComputationGraph(out: OutputStream)
 
-object Experiment {
+object SeededGraph {
   /** print the csv */
   def run(nodes: Set[Node], args: Seq[String]): Unit = {
     val graph = buildGraph(nodes)
@@ -31,7 +32,7 @@ object Experiment {
     val p  = parser(inputs.toSet)
     val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
     parseResult.foreach { nd =>
-      val (colNames, rows) = simpleDriver(Experiment(graph, nd, (1 to 5).map(_.toLong)), par = true)
+      val (colNames, rows) = simpleDriver(SeededGraph(graph, nd), RunConfig(1L to 5))
       println(colNames.mkString("\t"))
       rows.map(_.mkString("\t")).foreach(println)
     }
@@ -55,6 +56,8 @@ object Experiment {
     closure.map(n => n -> preds(n))(collection.breakOut)
   }
 
+  /** Generate all full-factorial assignments to the [[exp3.Stratification]] nodes, 
+    * sampling the [[exp3.Distribution]] nodes. */
   def assignmentSequence(nds: Seq[NonDeterminism[_]], random: Random): Iterator[Seq[Any]] = {
     val indexToNode: Map[Int, NonDeterminism[_]] = nds.zipWithIndex.map(_.swap).toMap
     val strats: Seq[Stratification[_]] = nds.collect{case strat: Stratification[_] => strat}
@@ -71,8 +74,9 @@ object Experiment {
 
   }
 
-  def simpleDriver(exp: Experiment, par: Boolean): (Seq[String],Seq[Seq[String]]) = {
-    val to: Seq[Node] = topo(exp.graph)
+  /** Naive driver that uses a topological ordering, breaking ties based on node name. */
+  def simpleDriver(exp: SeededGraph, rc: RunConfig): (Seq[String],Seq[Seq[String]]) = {
+    val to: Seq[Node] = topologicalOrdering(exp.graph,Ordering.by((_:Node).name))
     val columns: Seq[(ValuedNode[_], Seq[(String, Nothing => String)])] =
       to.collect{ case vn: ValuedNode[_] if vn.columns.nonEmpty => vn -> vn.columns}
     val colNames: Seq[String] = columns.flatMap(_._2.map(_._1))
@@ -80,7 +84,7 @@ object Experiment {
     val ins = to.collect{case in: InputNode[_] => in}
 
     val assignments: Iterator[(Long,Seq[Any])] =
-      exp.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), new Random(bs)).map(bs -> _))
+      rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), new Random(bs)).map(bs -> _))
 
     def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
       to.foldLeft(valuation){
@@ -98,7 +102,7 @@ object Experiment {
       cols.map(_._2.asInstanceOf[Any => String](value))
     }
 
-    val evaluations: Iterable[(Long,Map[Node, Any])] = if(par)
+    val evaluations: Iterable[(Long,Map[Node, Any])] = if(rc.runParallel)
       assignments.toSeq.par.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.seq
     else assignments.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.toIterable
 
@@ -108,9 +112,12 @@ object Experiment {
 
   /** Construct a topological ordering of the given graph.
     * @param graph Maps a node to the set of its parents. */
-  def topo[A](graph: Map[A,Set[A]], acc: Seq[A] = Seq()): Seq[A] =
-    graph.collect{case (k,parents) if !acc.contains(k) && parents.forall(acc.contains) => k}.headOption match {
+  def topologicalOrdering[A](graph: Map[A,Set[A]],
+                             break: Ordering[A],
+                             acc: Seq[A] = Seq()): Seq[A] =
+    graph.collect{case (k,parents) if !acc.contains(k) && parents.forall(acc.contains) => k}
+      .toSeq.sorted(break).headOption match {
       case None => acc
-      case Some(n) => topo(graph, acc :+ n)
+      case Some(n) => topologicalOrdering(graph, break, acc :+ n)
     }
 }

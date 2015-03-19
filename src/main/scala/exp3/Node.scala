@@ -8,15 +8,13 @@ import org.parboiled2._
 import scopt.{OptionParser, Read}
 import shapeless.HList._
 import shapeless.ops.hlist.{Comapped, ToTraversable}
-import shapeless.ops.product.ToHList
 import shapeless.ops.traversable.FromTraversable
 import shapeless.syntax.std.traversable._
 import shapeless.{HList, HNil}
 
+import scala.annotation.implicitNotFound
 import scala.language.reflectiveCalls
 import scala.util.Try
-import scala.{:: => _}
-
 
 /** A node in the computation graph.
   * During one configuration, it holds a value of type `T`.
@@ -95,9 +93,13 @@ case class Computation[DN <: HList, D <: HList, T](name: String, dependencies: D
 
 object Computation {
   import shapeless._
-  import shapeless.syntax.std.product._
-  import shapeless.syntax.std.function._
   import shapeless.ops.function._
+  import shapeless.syntax.std.function._
+  import shapeless.syntax.std.product._
+  @implicitNotFound("Cannot prove that function type ${F} maps ${H} to ${Out}")
+  case class FNProd[F, H <: HList, Out](fn2p: FnToProduct.Aux[F,H => Out])
+  implicit def myFnProd[F,H <: HList,Out](implicit x: FnToProduct.Aux[F, H => Out]): FNProd[F, H, Out] = FNProd(x)
+
   def apply[DN <: HList, D <: HList, T, TupN <: Product, FunDT](name: String, dependencies: TupN)
                                                                (computation: FunDT)
                                                                (implicit
@@ -105,7 +107,8 @@ object Computation {
                                                                 unwrap: Comapped.Aux[DN, ValuedNode, D],
                                                                 lub: ToTraversable.Aux[DN, List, Node],
                                                                 fromT: FromTraversable[D],
-                                                                fnUnHLister: FnToProduct.Aux[FunDT, D => T]): Computation[DN,D,T] = {
+                                                                fnUnHLister: FNProd[FunDT, D, T]): Computation[DN,D,T] = {
+    implicit val x = fnUnHLister.fn2p
     new Computation(name, dependencies.toHList)(computation.toProduct)
   }
 }

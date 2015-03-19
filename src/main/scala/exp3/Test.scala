@@ -23,9 +23,9 @@ object Test {
     val width: ValuedNode[Int] = IntP("width", Fixed(2))
     val seed: ValuedNode[Long] = Seed("seed.problem")
     val problem = Computation("problem", (width,seed))(
-      (w, s) => Problem(w,s)
+      (w, s: Int) => Problem(w,s)
     ).report("square.width", (p: Problem) => (p.w * p.w).toString)
 
-    Experiment.run(Set(problem), args)
+    SeededGraph.run(Set(problem), args)
   }
 }
