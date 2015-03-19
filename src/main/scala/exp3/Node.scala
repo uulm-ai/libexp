@@ -8,9 +8,10 @@ import org.parboiled2._
 import scopt.{OptionParser, Read}
 import shapeless.HList._
 import shapeless.ops.hlist.{Comapped, ToTraversable}
+import shapeless.ops.product.ToHList
 import shapeless.ops.traversable.FromTraversable
 import shapeless.syntax.std.traversable._
-import shapeless.{:: => :::, HList, HNil}
+import shapeless.{HList, HNil}
 
 import scala.language.reflectiveCalls
 import scala.util.Try
@@ -89,5 +90,22 @@ case class Computation[DN <: HList, D <: HList, T](name: String, dependencies: D
   def report(colName: String, f: T => String) = new Computation(name,dependencies)(computation){
     /** The columns produced by this node. */
     override def columns: Seq[(String, T => String)] = outer.columns :+ (colName, f)
+  }
+}
+
+object Computation {
+  import shapeless._
+  import shapeless.syntax.std.product._
+  import shapeless.syntax.std.function._
+  import shapeless.ops.function._
+  def apply[DN <: HList, D <: HList, T, TupN <: Product, FunDT](name: String, dependencies: TupN)
+                                                               (computation: FunDT)
+                                                               (implicit
+                                                                tupToHlist: Generic.Aux[TupN, DN],
+                                                                unwrap: Comapped.Aux[DN, ValuedNode, D],
+                                                                lub: ToTraversable.Aux[DN, List, Node],
+                                                                fromT: FromTraversable[D],
+                                                                fnUnHLister: FnToProduct.Aux[FunDT, D => T]): Computation[DN,D,T] = {
+    new Computation(name, dependencies.toHList)(computation.toProduct)
   }
 }

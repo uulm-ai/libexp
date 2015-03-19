@@ -9,22 +9,17 @@ import vultura.util.DomainCPI
 
 import scala.util.Random
 
-case class Experiment(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]])
+case class Experiment(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]], baseSeeds: Seq[Long])
 
 object Experiment {
   /** print the csv */
   def run(nodes: Set[Node], args: Seq[String]): Unit = {
     val graph = buildGraph(nodes)
-    println(s"graph: $graph")
     val inputs: Iterable[InputNode[_]] = graph.keys.collect{case in: InputNode[_] => in}
-    println(s"inputs: $inputs")
     val p  = parser(inputs.toSet)
-    println(p.showUsage)
     val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
-    println(parseResult)
-
     parseResult.foreach { nd =>
-      val (colNames, rows) = simpleDriver(Experiment(graph, nd), new Random(0))
+      val (colNames, rows) = simpleDriver(Experiment(graph, nd, (1 to 5).map(_.toLong)))
       println(colNames.mkString("\t"))
       rows.map(_.mkString("\t")).foreach(println)
     }
@@ -64,16 +59,16 @@ object Experiment {
 
   }
 
-  def simpleDriver(exp: Experiment, random: Random): (Seq[String],Seq[Seq[String]]) = {
+  def simpleDriver(exp: Experiment): (Seq[String],Seq[Seq[String]]) = {
     val to: Seq[Node] = topo(exp.graph)
     val columns: Seq[(ValuedNode[_], Seq[(String, Nothing => String)])] =
       to.collect{ case vn: ValuedNode[_] if vn.columns.nonEmpty => vn -> vn.columns}
     val colNames: Seq[String] = columns.flatMap(_._2.map(_._1))
-    println(s"topological ordering:\n\t$to")
 
     val ins = to.collect{case in: InputNode[_] => in}
 
-    val assignments: Iterator[Seq[Any]] = assignmentSequence(ins.map(exp.inputND), random)
+    val assignments: Iterator[(Long,Seq[Any])] =
+      exp.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), new Random(bs)).map(bs -> _))
 
     def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
       to.foldLeft(valuation){
@@ -91,9 +86,10 @@ object Experiment {
       cols.map(_._2.asInstanceOf[Any => String](value))
     }
 
-    val evaluations: Iterator[Map[Node, Any]] = assignments.map(vals => (ins zip vals).toMap: Map[Node,Any]).map(evaluate)
-    val csvRows = evaluations.map(buildRow)
-    (colNames, csvRows.toSeq)
+    val evaluations: Iterator[(Long,Map[Node, Any])] =
+      assignments.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}
+    val csvRows: Iterator[Seq[String]] = evaluations.map{case (bs,eval) => bs.toString +: buildRow(eval)}
+    ("base.seed" +: colNames, csvRows.toSeq)
   }
 
   /** Construct a topological ordering of the given graph.
