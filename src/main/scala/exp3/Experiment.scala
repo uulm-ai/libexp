@@ -4,12 +4,24 @@
 
 package exp3
 
+import java.io.OutputStream
+
 import scopt.OptionParser
 import vultura.util.DomainCPI
 
 import scala.util.Random
 
 case class Experiment(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]], baseSeeds: Seq[Long])
+
+
+case class RunConfig(baseSeeds: Seq[Long], runParallel: Boolean = true)
+trait Output {
+  def out: OutputStream
+}
+/** Run the experiment. */
+case class ExperimentCSV(out: OutputStream, runConfig: RunConfig)
+/** Output a dot version of the computation. */
+case class ComputationGraph(out: OutputStream)
 
 object Experiment {
   /** print the csv */
@@ -19,7 +31,7 @@ object Experiment {
     val p  = parser(inputs.toSet)
     val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
     parseResult.foreach { nd =>
-      val (colNames, rows) = simpleDriver(Experiment(graph, nd, (1 to 5).map(_.toLong)))
+      val (colNames, rows) = simpleDriver(Experiment(graph, nd, (1 to 5).map(_.toLong)), par = true)
       println(colNames.mkString("\t"))
       rows.map(_.mkString("\t")).foreach(println)
     }
@@ -59,7 +71,7 @@ object Experiment {
 
   }
 
-  def simpleDriver(exp: Experiment): (Seq[String],Seq[Seq[String]]) = {
+  def simpleDriver(exp: Experiment, par: Boolean): (Seq[String],Seq[Seq[String]]) = {
     val to: Seq[Node] = topo(exp.graph)
     val columns: Seq[(ValuedNode[_], Seq[(String, Nothing => String)])] =
       to.collect{ case vn: ValuedNode[_] if vn.columns.nonEmpty => vn -> vn.columns}
@@ -86,9 +98,11 @@ object Experiment {
       cols.map(_._2.asInstanceOf[Any => String](value))
     }
 
-    val evaluations: Iterator[(Long,Map[Node, Any])] =
-      assignments.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}
-    val csvRows: Iterator[Seq[String]] = evaluations.map{case (bs,eval) => bs.toString +: buildRow(eval)}
+    val evaluations: Iterable[(Long,Map[Node, Any])] = if(par)
+      assignments.toSeq.par.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.seq
+    else assignments.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.toIterable
+
+    val csvRows: Iterable[Seq[String]] = evaluations.map{case (bs,eval) => bs.toString +: buildRow(eval)}
     ("base.seed" +: colNames, csvRows.toSeq)
   }
 
