@@ -6,22 +6,53 @@ package exp3
 
 import org.parboiled2._
 import scopt.{OptionParser, Read}
-import shapeless.HList._
-import shapeless.ops.hlist.{Comapped, ToTraversable}
-import shapeless.ops.traversable.FromTraversable
-import shapeless.syntax.std.traversable._
-import shapeless.{HList, HNil}
+import shapeless.HNil
 
-import scala.annotation.implicitNotFound
 import scala.language.reflectiveCalls
 import scala.util.Try
+
+
+trait ParList[NT,R,FX] extends Serializable {
+  def listFunction(f: FX): Seq[Any] => R
+  def listDeps(deps: NT): Seq[Node]
+}
+
+object ParList{
+  implicit def t1[X,R]: ParList[ValuedNode[X], R, (X) => R] = new ParList[ValuedNode[X],R,X => R]{
+
+    override def listDeps(deps: ValuedNode[X]): Seq[Node] = Seq(deps)
+
+    override def listFunction(f: X => R): (Seq[Any]) => R = { xs =>
+      f(xs.head.asInstanceOf[X])
+
+    }
+  }
+  implicit def t2[X1,X2,R]: ParList[(ValuedNode[X1], ValuedNode[X2]), R, (X1, X2) => R]  =
+    new ParList[(ValuedNode[X1],ValuedNode[X2]),R,(X1,X2) => R]{
+
+      override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2])): Seq[Node] = Seq(deps._1,deps._2)
+
+      override def listFunction(f: (X1, X2) => R): (Seq[Any]) => R = { xs =>
+        val x1 = xs(0).asInstanceOf[X1]
+        val x2 = xs(1).asInstanceOf[X2]
+        f(x1,x2)
+      }
+    }
+}
 
 /** A node in the computation graph.
   * During one configuration, it holds a value of type `T`.
   * It produces some output columns in generated table. */
-sealed trait Node {
+sealed trait Node extends Serializable {
   /** The name of this node. */
   def name: String
+
+  override def hashCode(): Int = name.hashCode
+
+  override def equals(obj: scala.Any): Boolean = obj match {
+    case n: Node => n.name == name
+    case _ => false
+  }
 }
 
 sealed trait ValuedNode[T] extends Node {
@@ -66,49 +97,27 @@ trait InputNode[T] extends ValuedNode[T] {
   override val columns: Seq[(String, T => String)] = Seq(name -> (_.toString))
 }
 
-/** A computed node depends on some other nodes to compute it's value.
-  * The computation might require resources. */
-sealed trait ComputedNode[DN <: HList,D <: HList,T] extends ValuedNode[T] {
-  implicit def unwrap: Comapped.Aux[DN,ValuedNode,D]
-  implicit def lub: ToTraversable.Aux[DN, List, Node]
-  implicit def fromT: FromTraversable[D]
-  def dependencies: DN
-  def computation: D => T
-  def predecessors: Seq[Node] = dependencies.toList[Node]
-  def compute(args: Seq[Any]): T = computation(args.toHList[D].get)
+
+trait UntypedComputation[T] extends ValuedNode[T]{
+  def predecessors: Seq[Node]
+  def compute(args: Seq[Any]): T
 }
 
-case class Computation[DN <: HList, D <: HList, T](name: String, dependencies: DN)
-                                                  (val computation: D => T)
-                                                  (implicit
-                                                   val unwrap: Comapped.Aux[DN,ValuedNode,D],
-                                                   val lub: ToTraversable.Aux[DN, List, Node],
-                                                   val fromT: FromTraversable[D]) extends ComputedNode[DN,D,T] { outer =>
-  override def toString: String = s"Computation($name)"
-  def report(colName: String, f: T => String) = new Computation(name,dependencies)(computation){
-    /** The columns produced by this node. */
-    override def columns: Seq[(String, T => String)] = outer.columns :+ (colName, f)
-  }
+case class UTC[T](name: String, computation: Seq[Any] => T, predecessors: Seq[Node], override val columns: Seq[(String, T => String)]) extends UntypedComputation[T] {
+  override def compute(args: Seq[Any]): T = computation(args)
 }
 
-object Computation {
-  import shapeless._
-  import shapeless.ops.function._
-  import shapeless.syntax.std.function._
-  import shapeless.syntax.std.product._
-  @implicitNotFound("Cannot prove that function type ${F} maps ${H} to ${Out}")
-  case class FNProd[F, H <: HList, Out](fn2p: FnToProduct.Aux[F,H => Out])
-  implicit def myFnProd[F,H <: HList,Out](implicit x: FnToProduct.Aux[F, H => Out]): FNProd[F, H, Out] = FNProd(x)
+case class TypedComputation[NT,R,F](name: String,
+                                    deps: NT,
+                                    computation: F,
+                                    pl: ParList[NT,R,F],
+                                    override val columns: Seq[(String, R => String)]) extends UntypedComputation[R]{
+  override def predecessors: Seq[Node] = pl.listDeps(deps)
+  override def compute(args: Seq[Any]): R = pl.listFunction(computation)(args)
+  def report(colName: String, f: R => String) = copy(columns = columns :+ (colName,f))
+}
 
-  def apply[DN <: HList, D <: HList, T, TupN <: Product, FunDT](name: String, dependencies: TupN)
-                                                               (computation: FunDT)
-                                                               (implicit
-                                                                tupToHlist: Generic.Aux[TupN, DN],
-                                                                unwrap: Comapped.Aux[DN, ValuedNode, D],
-                                                                lub: ToTraversable.Aux[DN, List, Node],
-                                                                fromT: FromTraversable[D],
-                                                                fnUnHLister: FNProd[FunDT, D, T]): Computation[DN,D,T] = {
-    implicit val x = fnUnHLister.fn2p
-    new Computation(name, dependencies.toHList)(computation.toProduct)
-  }
+object TypedComputation{
+  def apply[DN,F,R](name: String, dependencies: DN)(computation: F)(implicit pl: ParList[DN,R,F]): TypedComputation[DN, R, F] =
+    new TypedComputation(name,dependencies,computation,pl,Seq())
 }

@@ -22,9 +22,21 @@ object Test {
   def main(args: Array[String]) {
     val width: ValuedNode[Int] = IntP("width", Fixed(2))
     val seed: ValuedNode[Long] = Seed("seed.problem")
-    val problem = Computation("problem", (width,seed))(
-      (w, s: Int) => Problem(w,s)
-    ).report("square.width", (p: Problem) => (p.w * p.w).toString)
+    val problem = TypedComputation("problem", (width,seed))(
+      (w: Int, s: Long) => {
+        var i = 0
+        var r = 0
+        while(i < 1000 * w){
+          var j = 0
+          while(j < 1000000){
+            r += j
+            j += 1
+          }
+          i += 1
+        }
+        Problem(r,s)
+      }
+    ).report("result", (p: Problem) => p.w.toString)
 
     SeededGraph.run(Set(problem), args)
   }

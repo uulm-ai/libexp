@@ -32,7 +32,7 @@ object SeededGraph {
     val p  = parser(inputs.toSet)
     val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
     parseResult.foreach { nd =>
-      val (colNames, rows) = simpleDriver(SeededGraph(graph, nd), RunConfig(1L to 5))
+      val (colNames, rows) = sparkDriver(SeededGraph(graph, nd), RunConfig(1L to 5))
       println(colNames.mkString("\t"))
       rows.map(_.mkString("\t")).foreach(println)
     }
@@ -49,7 +49,7 @@ object SeededGraph {
   def buildGraph(nodes: Set[Node]): Map[Node,Set[Node]] = {
     def preds(n: Node): Set[Node] = n match {
       case _: InputNode[_] => Set()
-      case c: Computation[_,_,_] => c.predecessors.toSet
+      case c: UntypedComputation[_] => c.predecessors.toSet
     }
     val closure: Set[Node] =
       Stream.iterate(nodes)(s => s.flatMap(preds) ++ s).sliding(2).dropWhile(x => x.head.size != x.tail.head.size).next().head
@@ -89,11 +89,10 @@ object SeededGraph {
     def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
       to.foldLeft(valuation){
         case (m,_:InputNode[_])      => m
-        case (m,cn: ComputedNode[_,_,_]) =>
+        case (m,cn: UntypedComputation[_]) =>
           val args: Seq[Any] = cn.predecessors.map(m)
           val result = cn.compute(args)
           m + (cn -> result)
-
       }
     }
 
@@ -105,6 +104,48 @@ object SeededGraph {
     val evaluations: Iterable[(Long,Map[Node, Any])] = if(rc.runParallel)
       assignments.toSeq.par.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.seq
     else assignments.map{case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.toIterable
+
+    val csvRows: Iterable[Seq[String]] = evaluations.map{case (bs,eval) => bs.toString +: buildRow(eval)}
+    ("base.seed" +: colNames, csvRows.toSeq)
+  }
+
+
+  def sparkDriver(exp: SeededGraph, rc: RunConfig, master: String = "local[*]"): (Seq[String],Seq[Seq[String]]) = {
+    import org.apache.spark.SparkContext
+    import org.apache.spark.SparkContext._
+    import org.apache.spark.SparkConf
+    val sc = new SparkContext(new SparkConf().setAppName("libexp").setMaster(master))
+
+    val to: Seq[Node] = topologicalOrdering(exp.graph,Ordering.by((_:Node).name))
+
+    val columns: Seq[(ValuedNode[_], Seq[(String, Nothing => String)])] =
+      to.collect{ case vn: ValuedNode[_] if vn.columns.nonEmpty => vn -> vn.columns}
+    val colNames: Seq[String] = columns.flatMap(_._2.map(_._1))
+
+    val ins = to.collect{case in: InputNode[_] => in}
+
+    val assignments: Iterator[(Long,Seq[Any])] =
+      rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), new Random(bs)).map(bs -> _))
+
+    /** Given an assignment to source nodes, compute the values of all other nodes. */
+    val evaluate: (Map[Node, Any]) => Map[Node, Any] = (valuation: Map[Node,Any]) => {
+      to.foldLeft(valuation){
+        case (m,_:InputNode[_])      => m
+        case (m,cn: UntypedComputation[_]) =>
+          val args: Seq[Any] = cn.predecessors.map(m)
+          val result = cn.compute(args)
+          m + (cn -> result)
+      }
+    }
+
+
+    def buildRow(valuation: Map[Node,Any]): Seq[String] = columns.flatMap{ case (node, cols) =>
+      val value = valuation(node)
+      cols.map(_._2.asInstanceOf[Any => String](value))
+    }
+
+    val evaluations: Iterable[(Long,Map[Node, Any])] =
+      sc.parallelize(assignments.toSeq).map { case (bs,vals) => bs -> evaluate((ins zip vals).toMap)}.collect()
 
     val csvRows: Iterable[Seq[String]] = evaluations.map{case (bs,eval) => bs.toString +: buildRow(eval)}
     ("base.seed" +: colNames, csvRows.toSeq)
