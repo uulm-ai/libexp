@@ -28,7 +28,7 @@ case class IntP(name: String,
                 max: Int = Integer.MAX_VALUE) extends InputNode[Int] {
   override def parser(s: ParserInput): NDParser[Int] = new StratParser[Int] {
     override def input: ParserInput = s
-    override def singleValue: Rule1[Int] = rule { capture(Digits) ~> ((_: String).toInt) }
+    override def singleValue: Rule1[Int] = Int
 
     /** Describe syntax of specifying single values. */
     override def singleValueFormat: String = "whole number"
@@ -56,14 +56,26 @@ case class Seed(name: String, default: Distribution[Long] = new Distribution[Lon
     override def syntaxDescription: String = s"provide a long to fix the random seed $name for all runs"
   }
 }
-//case class DoubleP(name: String,
-//                   default: Double,
-//                   min: Double = Double.NegativeInfinity,
-//                   max:Double = Double.PositiveInfinity,
-//                   fixed: Boolean = false) extends InputNode[Double]
-//case class BoolP(name: String,
-//                 default: Boolean,
-//                 fixed: Boolean = false) extends InputNode[Boolean]
+case class DoubleP(name: String,
+                   default: NonDeterminism[Double],
+                   min: Double = Double.NegativeInfinity,
+                   max:Double = Double.PositiveInfinity) extends InputNode[Double]{
+  override def parser(s: ParserInput): NDParser[Double] = new StratParser[Double] {
+    override def input: ParserInput = s
+    override def singleValue: Rule1[Double] = Float
+    /** Describe syntax of specifying single values. */
+    override def singleValueFormat: String = s"floating point ($min to $max)"
+  }
+}
+case class BoolP(name: String,
+                 default: NonDeterminism[Boolean]) extends InputNode[Boolean] {
+  override def parser(s: ParserInput): NDParser[Boolean] = new StratParser[Boolean] {
+    override def input: ParserInput = s
+    override def singleValue: Rule1[Boolean] = Bool
+    /** Describe syntax of specifying single values. */
+    override def singleValueFormat: String = s"boolean  ('true' and/or 'false)"
+  }
+}
 //case class Sum[TND <: HList, T <: HList](name: String, alternatives: TND)(implicit unwrap: Comapped.Aux[TND,ND,T]) {
 //  def fold[S,M <: HList](maps: M)(implicit unwrap: Comapped.Aux[M,({type l[X] = X=>S})#l,T]): Node[S] = ???
 //}

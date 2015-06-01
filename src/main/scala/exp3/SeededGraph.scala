@@ -32,7 +32,7 @@ object SeededGraph {
     val p  = parser(inputs.toSet)
     val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
     parseResult.foreach { nd =>
-      val (colNames, rows) = sparkDriver(SeededGraph(graph, nd), RunConfig(1L to 5))
+      val (colNames, rows) = simpleDriver(SeededGraph(graph, nd), RunConfig(1L to 5))
       println(colNames.mkString("\t"))
       rows.map(_.mkString("\t")).foreach(println)
     }
@@ -50,6 +50,7 @@ object SeededGraph {
     def preds(n: Node): Set[Node] = n match {
       case _: InputNode[_] => Set()
       case c: UntypedComputation[_] => c.predecessors.toSet
+      case fi: FixedInput[_] => Set()
     }
     val closure: Set[Node] =
       Stream.iterate(nodes)(s => s.flatMap(preds) ++ s).sliding(2).dropWhile(x => x.head.size != x.tail.head.size).next().head

@@ -6,7 +6,7 @@ package exp3
 
 import org.parboiled2._
 import scopt.{OptionParser, Read}
-import shapeless.HNil
+import shapeless.{::, HNil}
 
 import scala.language.reflectiveCalls
 import scala.util.Try
@@ -38,6 +38,44 @@ object ParList{
         f(x1,x2)
       }
     }
+  implicit def t3[X1,X2,X3,R]: ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3]), R, (X1, X2, X3) => R]  =
+    new ParList[(ValuedNode[X1],ValuedNode[X2], ValuedNode[X3]),R,(X1,X2,X3) => R]{
+
+      override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2], ValuedNode[X3])): Seq[Node] = Seq(deps._1,deps._2,deps._3)
+
+      override def listFunction(f: (X1, X2, X3) => R): (Seq[Any]) => R = { xs =>
+        val x1 = xs(0).asInstanceOf[X1]
+        val x2 = xs(1).asInstanceOf[X2]
+        val x3 = xs(2).asInstanceOf[X3]
+        f(x1,x2,x3)
+      }
+    }
+  implicit def t4[X1,X2,X3,X4,R]: ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4]), R, (X1, X2, X3,X4) => R]  =
+    new ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4]),R,(X1,X2,X3,X4) => R]{
+      override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4])): Seq[Node] = Seq(deps._1,deps._2,deps._3, deps._4)
+
+      override def listFunction(f: (X1,X2,X3,X4) => R): (Seq[Any]) => R = { xs =>
+        val x1 = xs(0).asInstanceOf[X1]
+        val x2 = xs(1).asInstanceOf[X2]
+        val x3 = xs(2).asInstanceOf[X3]
+        val x4 = xs(3).asInstanceOf[X4]
+        f(x1,x2,x3,x4)
+      }
+    }
+  implicit def t5[X1,X2,X3,X4,X5,R]: ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5]), R, (X1, X2, X3,X4,X5) => R]  =
+    new ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5]),R,(X1, X2, X3,X4,X5) => R]{
+      override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5])): Seq[Node] = Seq(deps._1,deps._2,deps._3, deps._4, deps._5)
+
+      override def listFunction(f: (X1, X2, X3,X4,X5) => R): (Seq[Any]) => R = { xs =>
+        val x1 = xs(0).asInstanceOf[X1]
+        val x2 = xs(1).asInstanceOf[X2]
+        val x3 = xs(2).asInstanceOf[X3]
+        val x4 = xs(3).asInstanceOf[X4]
+        val x5 = xs(4).asInstanceOf[X5]
+
+        f(x1,x2,x3,x4,x5)
+      }
+    }
 }
 
 /** A node in the computation graph.
@@ -60,10 +98,16 @@ sealed trait ValuedNode[T] extends Node {
   def columns: Seq[(String,T => String)] = Seq()
 }
 
+case class FixedInput[T](name: String, values: NonDeterminism[T]) extends ValuedNode[T]
+
 trait NDParser[T] extends Parser {
   def syntaxDescription: String
   def nd: Rule1[NonDeterminism[T]]
   def Digits: Rule[HNil, HNil] = rule { oneOrMore(CharPredicate.Digit) }
+
+  def Int: Rule1[Int] = rule { capture(Digits) ~> ((_: String).toInt) }
+  def Float = rule{ capture(Digits ~ optional('.' ~ Digits)) ~> ((_:String).toDouble) }
+  def Bool = rule{ "true" ~ push(true) | "false" ~ push(false)}
 }
 
 /** An InputNode has is a independent variable.
