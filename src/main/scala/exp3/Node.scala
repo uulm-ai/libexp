@@ -129,11 +129,11 @@ trait InputNode[T] extends ValuedNode[T] {
   }
 
   /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
-  def install(parser: OptionParser[Map[InputNode[_], NonDeterminism[_]]]): Unit = {
+  def install(parser: OptionParser[(RunConfig,Map[InputNode[_], NonDeterminism[_]])]): Unit = {
     implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parse(s).get)
     parser
       .opt[NonDeterminism[T]](toOptionName(name))
-      .action{case (si,m) => m + (this -> si)}
+      .action{case (si,(rc,m)) => (rc,m + (this -> si))}
       .text(s"$name; default is $default")
   }
 

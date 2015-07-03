@@ -15,7 +15,9 @@ case class Experiment(name: String, nodes: Set[Node])
 
 case class SeededGraph(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]])
 
-case class RunConfig(baseSeeds: Iterable[Long], runParallel: Boolean = true)
+case class RunConfig(numSeeds: Long = 5, startSeed: Long = 0, runParallel: Boolean = true){
+  def baseSeeds: Iterable[Long] = startSeed until (startSeed + numSeeds)
+}
 trait Output {
   def out: OutputStream
 }
@@ -30,17 +32,19 @@ object SeededGraph {
     val graph = buildGraph(nodes)
     val inputs: Iterable[InputNode[_]] = graph.keys.collect{case in: InputNode[_] => in}
     val p  = parser(inputs.toSet)
-    val parseResult = p.parse(args,inputs.map(i => i -> i.default).toMap)
-    parseResult.foreach { nd =>
-      val (colNames, rows) = simpleDriver(SeededGraph(graph, nd), RunConfig(1L to 5))
+    val parseResult = p.parse(args,RunConfig() -> inputs.map(i => i -> i.default).toMap)
+    parseResult.foreach { case (rc,nd) =>
+      val (colNames, rows) = simpleDriver(SeededGraph(graph, nd), rc)
       println(colNames.mkString("\t"))
       rows.map(_.mkString("\t")).foreach(println)
     }
   }
 
   def parser(inputs: Set[InputNode[_]]) = {
-    val p = new OptionParser[Map[InputNode[_],NonDeterminism[_]]]("foo"){
+    val p = new OptionParser[(RunConfig,Map[InputNode[_],NonDeterminism[_]])]("foo"){
       head("foo", "v0.0")
+      opt[Int]('n',"num-samples")
+        .action{case (n, (rc,m)) => (rc.copy(numSeeds = n),m)}
     }
     inputs.foreach(_.install(p))
     p
