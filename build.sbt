@@ -20,16 +20,15 @@ homepage := Some(url("https://github.com/uulm-ai/libexp"))
 
 licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
 
-libraryDependencies += "org.scala-lang.modules" % "scala-parser-combinators_2.11" % "1.0.1"
+libraryDependencies += "com.lihaoyi" %% "fastparse" % "0.3.0"
 
-libraryDependencies += "com.github.scopt" % "scopt_2.11" % "3.2.0"
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.2.0"
 
-libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.0"
+libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.4" % "test"
 
-libraryDependencies += "org.specs2" % "specs2_2.11" % "2.3.12" % "test"
+libraryDependencies += "de.uni-ulm" %% "vultura-util" % "23.2.0"
 
 resolvers += "mvn@mirkwood" at "http://mirkwood.informatik.uni-ulm.de/mvn"
 
-libraryDependencies += "de.uni-ulm" %% "vultura-util" % "23.1.1"

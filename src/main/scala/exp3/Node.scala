@@ -4,12 +4,10 @@
 
 package exp3
 
-import org.parboiled2._
+import fastparse.P
 import scopt.{OptionParser, Read}
-import shapeless.{::, HNil}
 
 import scala.language.reflectiveCalls
-import scala.util.Try
 
 
 trait ParList[NT,R,FX] extends Serializable {
@@ -100,47 +98,10 @@ sealed trait ValuedNode[T] extends Node {
 
 case class FixedInput[T](name: String, values: NonDeterminism[T]) extends ValuedNode[T]
 
-trait NDParser[T] extends Parser {
+trait NDParser[T] {
   def syntaxDescription: String
-  def nd: Rule1[NonDeterminism[T]]
-  def Digits: Rule[HNil, HNil] = rule { oneOrMore(CharPredicate.Digit) }
-
-  def Int: Rule1[Int] = rule { capture(Digits) ~> ((_: String).toInt) }
-  def Float = rule{ capture(Digits ~ optional('.' ~ Digits)) ~> ((_:String).toDouble) }
-  def Bool = rule{ "true" ~ push(true) | "false" ~ push(false)}
+  def nd: P[NonDeterminism[T]]
 }
-
-/** An InputNode has is a independent variable.
-  * It has no dependencies and can be fed compatible values to trigger computations in the successor nodes. */
-trait InputNode[T] extends ValuedNode[T] {
-  def default: NonDeterminism[T]
-  def parser(s: ParserInput): NDParser[T]
-
-  def parse(s: String): Try[NonDeterminism[T]] = {
-    val p = parser(s)
-    p.nd.run()
-  }
-
-  /** Replace spaces and dots with '-'. */
-  def toOptionName(s: String): String = s.map{
-    case ' ' => '-'
-    case '.' => '-'
-    case other => other
-  }
-
-  /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
-  def install(parser: OptionParser[(RunConfig,Map[InputNode[_], NonDeterminism[_]])]): Unit = {
-    implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parse(s).get)
-    parser
-      .opt[NonDeterminism[T]](toOptionName(name))
-      .action{case (si,(rc,m)) => (rc,m + (this -> si))}
-      .text(s"$name; default is $default")
-  }
-
-  /** The columns produced by this node. */
-  override val columns: Seq[(String, T => String)] = Seq(name -> (_.toString))
-}
-
 
 trait UntypedComputation[T] extends ValuedNode[T]{
   def predecessors: Seq[Node]
@@ -164,4 +125,34 @@ case class TypedComputation[NT,R,F](name: String,
 object TypedComputation{
   def apply[DN,F,R](name: String, dependencies: DN)(computation: F)(implicit pl: ParList[DN,R,F]): TypedComputation[DN, R, F] =
     new TypedComputation(name,dependencies,computation,pl,Seq())
+}
+
+/** An InputNode has is a independent variable.
+  * It has no dependencies and can be fed compatible values to trigger computations in the successor nodes. */
+trait InputNode[T] extends ValuedNode[T] {
+  def default: NonDeterminism[T]
+  def parser: NDParser[T]
+
+  /** Replace spaces and dots with '-'. */
+  def toOptionName(s: String): String = s.map{
+    case ' ' => '-'
+    case '.' => '-'
+    case other => other
+  }
+
+  /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
+  def install(optParser: OptionParser[(RunConfig,Map[InputNode[_], NonDeterminism[_]])]): Unit = {
+    import fastparse._
+    implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parser.nd.parse(s) match {
+      case Result.Success(x,_) => x
+      case o                 => sys.error(o.toString)
+    })
+    optParser
+      .opt[NonDeterminism[T]](toOptionName(name))
+      .action{case (si,(rc,m)) => (rc,m + (this -> si))}
+      .text(s"$name; default is $default")
+  }
+
+  /** The columns produced by this node. */
+  override val columns: Seq[(String, T => String)] = Seq(name -> (_.toString))
 }
