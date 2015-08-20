@@ -10,37 +10,46 @@ import scopt.{OptionParser, Read}
 import scala.language.reflectiveCalls
 
 
-trait ParList[NT,R,FX] extends Serializable {
-  def listFunction(f: FX): Seq[Any] => R
-  def listDeps(deps: NT): Seq[Node]
+/** @tparam R result type of function type F
+  * @tparam A argument product type (not wrapped as Node)
+  */
+trait ParList[A,R] extends Serializable {
+  /** A wrapped in node product type. */
+  type NA
+  type F
+  def listFunction(f: F): Seq[Any] => R
+  def listDeps(deps: NA): Seq[Node]
 }
 
 object ParList{
-  implicit def t1[X,R]: ParList[ValuedNode[X], R, (X) => R] = new ParList[ValuedNode[X],R,X => R]{
-
-    override def listDeps(deps: ValuedNode[X]): Seq[Node] = Seq(deps)
-
-    override def listFunction(f: X => R): (Seq[Any]) => R = { xs =>
-      f(xs.head.asInstanceOf[X])
-
+  type Aux[A,R,Na,Fa] = ParList[A,R]{
+    type NA = Na
+    type F = Fa
+  }
+  implicit def t1[A,R]: ParList.Aux[A, R, ValuedNode[A], A => R] = new ParList[A,R]{
+    override type NA = ValuedNode[A]
+    override type F = A => R
+    override def listDeps(deps: ValuedNode[A]): Seq[Node] = Seq(deps)
+    override def listFunction(f: A => R): (Seq[Any]) => R = { xs =>
+      f(xs.head.asInstanceOf[A])
     }
   }
-  implicit def t2[X1,X2,R]: ParList[(ValuedNode[X1], ValuedNode[X2]), R, (X1, X2) => R]  =
-    new ParList[(ValuedNode[X1],ValuedNode[X2]),R,(X1,X2) => R]{
-
+  implicit def t2[X1,X2,R]: ParList.Aux[(X1, X2), R,(ValuedNode[X1],ValuedNode[X2]), (X1,X2) => R]  =
+    new ParList[(X1,X2),R]{
+      override type NA = (ValuedNode[X1],ValuedNode[X2])
+      override type F = (X1,X2) => R
       override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2])): Seq[Node] = Seq(deps._1,deps._2)
-
       override def listFunction(f: (X1, X2) => R): (Seq[Any]) => R = { xs =>
         val x1 = xs(0).asInstanceOf[X1]
         val x2 = xs(1).asInstanceOf[X2]
         f(x1,x2)
       }
     }
-  implicit def t3[X1,X2,X3,R]: ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3]), R, (X1, X2, X3) => R]  =
-    new ParList[(ValuedNode[X1],ValuedNode[X2], ValuedNode[X3]),R,(X1,X2,X3) => R]{
-
+  implicit def t3[X1,X2,X3,R]: ParList.Aux[(X1,X2,X3), R, (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3]), (X1, X2, X3) => R]  =
+    new ParList[(X1,X2,X3), R]{
+      override type NA = (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3])
+      override type F = (X1, X2, X3) => R
       override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2], ValuedNode[X3])): Seq[Node] = Seq(deps._1,deps._2,deps._3)
-
       override def listFunction(f: (X1, X2, X3) => R): (Seq[Any]) => R = { xs =>
         val x1 = xs(0).asInstanceOf[X1]
         val x2 = xs(1).asInstanceOf[X2]
@@ -48,8 +57,12 @@ object ParList{
         f(x1,x2,x3)
       }
     }
-  implicit def t4[X1,X2,X3,X4,R]: ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4]), R, (X1, X2, X3,X4) => R]  =
-    new ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4]),R,(X1,X2,X3,X4) => R]{
+  implicit def t4[X1,X2,X3,X4,R]: ParList.Aux[(X1, X2, X3, X4), R, (ValuedNode[X1], ValuedNode[X2], ValuedNode[X3], ValuedNode[X4]), (X1, X2, X3, X4) => R]  =
+    new ParList[(X1,X2,X3,X4),R]{
+
+      override type NA = (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4])
+      override type F = (X1, X2, X3, X4) => R
+
       override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4])): Seq[Node] = Seq(deps._1,deps._2,deps._3, deps._4)
 
       override def listFunction(f: (X1,X2,X3,X4) => R): (Seq[Any]) => R = { xs =>
@@ -60,8 +73,11 @@ object ParList{
         f(x1,x2,x3,x4)
       }
     }
-  implicit def t5[X1,X2,X3,X4,X5,R]: ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5]), R, (X1, X2, X3,X4,X5) => R]  =
-    new ParList[(ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5]),R,(X1, X2, X3,X4,X5) => R]{
+  implicit def t5[X1,X2,X3,X4,X5,R]: ParList.Aux[(X1, X2, X3,X4,X5), R, (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5]), (X1, X2, X3,X4,X5) => R]  =
+    new ParList[(X1, X2, X3, X4, X5), R]{
+      override type NA = (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5])
+      override type F = (X1, X2, X3,X4,X5) => R
+
       override def listDeps(deps: (ValuedNode[X1], ValuedNode[X2],ValuedNode[X3],ValuedNode[X4],ValuedNode[X5])): Seq[Node] = Seq(deps._1,deps._2,deps._3, deps._4, deps._5)
 
       override def listFunction(f: (X1, X2, X3,X4,X5) => R): (Seq[Any]) => R = { xs =>
@@ -112,20 +128,6 @@ case class UTC[T](name: String, computation: Seq[Any] => T, predecessors: Seq[No
   override def compute(args: Seq[Any]): T = computation(args)
 }
 
-case class TypedComputation[NT,R,F](name: String,
-                                    deps: NT,
-                                    computation: F,
-                                    pl: ParList[NT,R,F],
-                                    override val columns: Seq[(String, R => String)]) extends UntypedComputation[R]{
-  override def predecessors: Seq[Node] = pl.listDeps(deps)
-  override def compute(args: Seq[Any]): R = pl.listFunction(computation)(args)
-  def report(colName: String, f: R => String) = copy(columns = columns :+ (colName,f))
-}
-
-object TypedComputation{
-  def apply[DN,F,R](name: String, dependencies: DN)(computation: F)(implicit pl: ParList[DN,R,F]): TypedComputation[DN, R, F] =
-    new TypedComputation(name,dependencies,computation,pl,Seq())
-}
 
 /** An InputNode has is a independent variable.
   * It has no dependencies and can be fed compatible values to trigger computations in the successor nodes. */
