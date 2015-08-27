@@ -20,8 +20,8 @@ object Test {
   }
 
   def main(args: Array[String]) {
-    val width: ValuedNode[Int] = IntP("width", Fixed(2))
-    val seed: ValuedNode[Long] = Seed("seed.problem")
+    val width = IntP("width", Fixed(2))
+    val seed = Seed("seed.problem")
     val problem = TypedComputation("problem", (width,seed))(
       (w: Int, s: Long) => {
         var i = 0

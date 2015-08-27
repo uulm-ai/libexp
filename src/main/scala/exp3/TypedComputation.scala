@@ -1,10 +1,10 @@
 package exp3
 
 
-case class TypedComputation[A,R,NA,F](name: String,
+case class TypedComputation[R,NA,F](name: String,
                                       deps: NA,
                                       computation: F,
-                                      pl: ParList.Aux[A,R,NA,F],
+                                      pl: ParList.Aux[_,R,NA,F],
                                       override val columns: Seq[(String, R => String)]) extends UntypedComputation[R]{
   override def predecessors: Seq[Node] = pl.listDeps(deps)
   override def compute(args: Seq[Any]): R = pl.listFunction(computation)(args)
@@ -12,6 +12,6 @@ case class TypedComputation[A,R,NA,F](name: String,
 }
 
 object TypedComputation{
-  def apply[DN,F,R](name: String, dependencies: DN)(computation: F)(implicit pl: ParList.Aux[_,R,DN,F]): TypedComputation[_,R,DN,F] =
+  def apply[DN,F,R](name: String, dependencies: DN)(computation: F)(implicit pl: ParList.Aux[_,R,DN,F]): TypedComputation[R,DN,F] =
     new TypedComputation(name,dependencies,computation,pl,Seq())
 }
