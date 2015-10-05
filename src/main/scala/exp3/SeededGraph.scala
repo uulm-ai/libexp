@@ -26,7 +26,7 @@ case class ExperimentCSV(out: OutputStream, runConfig: RunConfig)
 /** Output a dot version of the computation. */
 case class ComputationGraph(out: OutputStream)
 
-object SeededGraph {
+case class ExpApp(name: String = "expapp", appversion: String = "0.0", description: String = "") {
   /** print the csv */
   def run(nodes: Set[Node], args: Seq[String]): Unit = {
     val graph = buildGraph(nodes)
@@ -41,8 +41,8 @@ object SeededGraph {
   }
 
   def parser(inputs: Set[InputNode[_]]) = {
-    val p = new OptionParser[(RunConfig,Map[InputNode[_],NonDeterminism[_]])]("foo"){
-      head("foo", "v0.0")
+    val p = new OptionParser[(RunConfig,Map[InputNode[_],NonDeterminism[_]])](name){
+      head(name, appversion)
       opt[Int]('n',"num-samples")
         .action{case (n, (rc,m)) => (rc.copy(numSeeds = n),m)}
     }
@@ -76,7 +76,6 @@ object SeededGraph {
         case Distribution(sample) => sample(random)
       }
     }
-
   }
 
   /** Naive driver that uses a topological ordering, breaking ties based on node name. */

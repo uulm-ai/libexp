@@ -3,6 +3,8 @@
  */
 
 package exp3
+
+import fastparse.Parser.Literal
 import fastparse._
 
 trait StratParser[T] extends NDParser[T]{
@@ -19,6 +21,16 @@ trait StratParser[T] extends NDParser[T]{
   def singleValue: P[T]
   /** Describe syntax of specifying single values. */
   def singleValueFormat: String
+}
+
+case class EnumP(name: String, values: Set[String], default: NonDeterminism[String]) extends InputNode[String]{
+  override def parser: NDParser[String] = new StratParser[String] {
+    /** Describe syntax of specifying single values. */
+    override def singleValueFormat: String = s"one of ${values.mkString(",")}; default is $default"
+
+    /** Parser that parses a single value. */
+    override def singleValue: P[String] = values.toSeq.sorted.map(Literal(_)).foldLeft[Parser[Unit]](Fail){case (pp,p) => pp | p}.!
+  }
 }
 
 case class IntP(name: String,

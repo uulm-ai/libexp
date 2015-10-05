@@ -20,10 +20,11 @@ object Test {
   }
 
   def main(args: Array[String]) {
+    val mode = EnumP("mode", Set("low","high"), Fixed("low"))
     val width = IntP("width", Fixed(2))
     val seed = Seed("seed.problem")
-    val problem = TypedComputation("problem", (width,seed))(
-      (w: Int, s: Long) => {
+    val problem = TypedComputation("problem", (width,seed,mode))(
+      (w: Int, s: Long, _: String) => {
         var i = 0
         var r = 0
         while(i < 1000 * w){
@@ -38,6 +39,6 @@ object Test {
       }
     ).report("result", (p: Problem) => p.w.toString)
 
-    SeededGraph.run(Set(problem), args)
+    ExpApp("test").run(Set(problem), args)
   }
 }
