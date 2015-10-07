@@ -12,7 +12,7 @@ organizationHomepage := Some(url("http://www.uni-ulm.de/en/in/ki.html"))
 1.4.1: - remove many dependencies; rewrite parser transformer code without shapeless
 2.0.0: new configuration framework
  */
-version := "3.0.0-DEV"
+version := "3.0.0-HPOMDP"
 
 description := "A Scala library for describing computational experiments"
 
