@@ -62,12 +62,13 @@ trait InputNode[T] extends ValuedNode[T] {
     import fastparse._
     implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parser.nd.parse(s) match {
       case Result.Success(x,_) => x
-      case o                 => sys.error(o.toString)
+      case o                   => sys.error(o.toString)
     })
     optParser
       .opt[NonDeterminism[T]](toOptionName(name))
       .action{case (si,(rc,m)) => (rc,m + (this -> si))}
       .text(s"$name; default is $default")
+      .text(parser.syntaxDescription)
   }
 
   /** The columns produced by this node. */

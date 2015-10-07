@@ -62,16 +62,18 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
 
   /** Generate all full-factorial assignments to the [[exp3.Stratification]] nodes, 
     * sampling the [[exp3.Distribution]] nodes. */
-  def assignmentSequence(nds: Seq[NonDeterminism[_]], random: Random): Iterator[Seq[Any]] = {
+  def assignmentSequence(nds: Seq[NonDeterminism[_]], seed: Long): Iterator[Seq[Any]] = {
     val indexToNode: Map[Int, NonDeterminism[_]] = nds.zipWithIndex.map(_.swap).toMap
     val strats: Seq[Stratification[_]] = nds.collect{case strat: Stratification[_] => strat}
     val values: Seq[Seq[Any]] = strats.map(_.values)
     val counter = new DomainCPI(values.map(_.toArray).toArray)
     counter.iterator.map { stratValues =>
       val stratMap = (strats zip stratValues).toMap
-      nds.map {
-        case s: Stratification[_]    => stratMap(s)
-        case Distribution(sample) => sample(random)
+      val rnd = new Random(seed)
+      val rngs = Stream.continually(rnd.nextLong()).map(new Random(_))
+      (nds zip rngs).map {
+        case (s: Stratification[_],_)    => stratMap(s)
+        case (Distribution(sample),r) => sample(r)
       }
     }
   }
@@ -86,7 +88,7 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
     val ins = to.collect{case in: InputNode[_] => in}
 
     val assignments: Iterator[(Long,Seq[Any])] =
-      rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), new Random(bs)).map(bs -> _))
+      rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), bs).map(bs -> _))
 
     def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
       to.foldLeft(valuation){

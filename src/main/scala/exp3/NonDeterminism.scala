@@ -11,6 +11,7 @@ sealed trait NonDeterminism[+T]
 
 object NonDeterminism {
   def fixed[T](x: T): Stratification[T] = Stratification(Seq(x))
+  val empty = Stratification(Seq())
 }
 
 case class Stratification[+T](values: Seq[T]) extends NonDeterminism[T]{

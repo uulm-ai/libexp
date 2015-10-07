@@ -8,7 +8,6 @@ import fastparse.Parser.Literal
 import fastparse._
 
 import scala.util.Random
-import scala.util.matching.Regex
 
 trait StratParser[T] extends NDParser[T]{
   final def syntaxDescription: String =
@@ -36,10 +35,16 @@ case class EnumP(name: String, values: Set[String], default: NonDeterminism[Stri
   }
 }
 
-case class StringP(name: String, pattern: P[String]) extends InputNode[String]{
-  override def default: NonDeterminism[String] = ???
+case class StringP(name: String, pattern: P[String] = CharsWhile(c => !Set(' ',',','{','}')(c),min=1).!) extends InputNode[String]{
+  override def default: NonDeterminism[String] = NonDeterminism.empty
 
-  override def parser: NDParser[String] = ???
+  override def parser: NDParser[String] = new StratParser[String]{
+    /** Parser that parses a single value. */
+    override def singleValue: P[String] = pattern
+
+    /** Describe syntax of specifying single values. */
+    override def singleValueFormat: String = "a string not containing any of ' ',',','{','}'"
+  }
 }
 
 case class IntP(name: String,
