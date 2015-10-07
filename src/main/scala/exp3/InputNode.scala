@@ -7,15 +7,18 @@ package exp3
 import fastparse.Parser.Literal
 import fastparse._
 
+import scala.util.Random
+import scala.util.matching.Regex
+
 trait StratParser[T] extends NDParser[T]{
   final def syntaxDescription: String =
     """parses either a fixed value 'x', or a sequence enclosed by
       |curly brackets and delimited by commas; single values follow
       |the format: """.stripMargin + singleValueFormat
 
-  final def nd: P[NonDeterminism[T]] = P(fixed | strat)
+  final def nd: P[NonDeterminism[T]] = P(fixedParser | strat)
   final def strat: P[Stratification[T]] = P( "{" ~ singleValue.rep1(delimiter=",") ~ "}").map(Stratification(_))
-  final def fixed: P[Fixed[T]] = singleValue.map(Fixed(_))
+  final def fixedParser: P[Stratification[T]] = singleValue.map(only(_))
 
   /** Parser that parses a single value. */
   def singleValue: P[T]
@@ -31,6 +34,12 @@ case class EnumP(name: String, values: Set[String], default: NonDeterminism[Stri
     /** Parser that parses a single value. */
     override def singleValue: P[String] = values.toSeq.sorted.map(Literal(_)).foldLeft[Parser[Unit]](Fail){case (pp,p) => pp | p}.!
   }
+}
+
+case class StringP(name: String, pattern: P[String]) extends InputNode[String]{
+  override def default: NonDeterminism[String] = ???
+
+  override def parser: NDParser[String] = ???
 }
 
 case class IntP(name: String,
@@ -60,10 +69,11 @@ case class Seed(name: String, default: Distribution[Long] = new Distribution[Lon
   extends InputNode[Long]{
   override val columns: Seq[(String, Long => String)] = Seq(name -> (_.toString))
   override val parser: NDParser[Long] = new NDParser[Long] {
-    override def nd: P[NonDeterminism[Long]] = PrimitiveParsers.long.map(Fixed(_))
+    override def nd: P[NonDeterminism[Long]] = PrimitiveParsers.long.map(only(_))
     override def syntaxDescription: String = s"provide a long to fix the random seed $name for all runs"
   }
 }
+
 case class DoubleP(name: String,
                    default: NonDeterminism[Double],
                    min: Double = Double.NegativeInfinity,

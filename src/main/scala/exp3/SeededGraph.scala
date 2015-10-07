@@ -54,7 +54,6 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
     def preds(n: Node): Set[Node] = n match {
       case _: InputNode[_] => Set()
       case c: UntypedComputation[_] => c.predecessors.toSet
-      case fi: FixedInput[_] => Set()
     }
     val closure: Set[Node] =
       Stream.iterate(nodes)(s => s.flatMap(preds) ++ s).sliding(2).dropWhile(x => x.head.size != x.tail.head.size).next().head
@@ -72,7 +71,6 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
       val stratMap = (strats zip stratValues).toMap
       nds.map {
         case s: Stratification[_]    => stratMap(s)
-        case Fixed(x)                => x
         case Distribution(sample) => sample(random)
       }
     }

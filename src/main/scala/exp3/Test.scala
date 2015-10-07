@@ -20,8 +20,8 @@ object Test {
   }
 
   def main(args: Array[String]) {
-    val mode = EnumP("mode", Set("low","high"), Fixed("low"))
-    val width = IntP("width", Fixed(2))
+    val mode = EnumP("mode", Set("low","high"), only("low"))
+    val width = IntP("width", only(2))
     val seed = Seed("seed.problem")
     val problem = TypedComputation("problem", (width,seed,mode))(
       (w: Int, s: Long, _: String) => {

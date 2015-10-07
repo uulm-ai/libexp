@@ -29,8 +29,6 @@ sealed trait ValuedNode[T] extends Node {
   def columns: Seq[(String,T => String)] = Seq()
 }
 
-case class FixedInput[T](name: String, values: NonDeterminism[T]) extends ValuedNode[T]
-
 trait NDParser[T] {
   def syntaxDescription: String
   def nd: P[NonDeterminism[T]]
