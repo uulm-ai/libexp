@@ -5,6 +5,9 @@
 package exp3
 
 import java.io.OutputStream
+import java.text.DateFormat
+import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 
 import scopt.OptionParser
 import vultura.util.DomainCPI
@@ -15,7 +18,10 @@ case class Experiment(name: String, nodes: Set[Node])
 
 case class SeededGraph(graph: Map[Node,Set[Node]], inputND: Map[InputNode[_],NonDeterminism[_]])
 
-case class RunConfig(numSeeds: Long = 5, startSeed: Long = 0, runParallel: Boolean = true){
+case class RunConfig(numSeeds: Long = 5,
+                     startSeed: Long = 0,
+                     runParallel: Boolean = true,
+                     reportIntervall: Option[Int] = None){
   def baseSeeds: Iterable[Long] = startSeed until (startSeed + numSeeds)
 }
 trait Output {
@@ -45,6 +51,9 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
       head(name, appversion)
       opt[Int]('n',"num-samples")
         .action{case (n, (rc,m)) => (rc.copy(numSeeds = n),m)}
+      opt[Int]("print-progress")
+        .action{case (n, (rc,m)) => (rc.copy(reportIntervall = Some(n)),m)}
+        .text("time intervall in seconds after which to print progress on stderr; leave unspecified for no progress report")
     }
     inputs.foreach(_.install(p))
     p
@@ -87,17 +96,39 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
 
     val ins = to.collect{case in: InputNode[_] => in}
 
-    val assignments: Iterator[(Long,Seq[Any])] =
-      rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), bs).map(bs -> _))
+    val assignments: IndexedSeq[(Long,Seq[Any])] =
+      Random.shuffle(rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), bs).map(bs -> _)).toIndexedSeq)
 
+    val numTasks: Int = assignments.size
+
+    val startTime = System.nanoTime()
+    val lastReport: AtomicLong = new AtomicLong(startTime)
+    val numProcessed: AtomicLong = new AtomicLong(0L)
     def evaluate(valuation: Map[Node,Any]): Map[Node,Any] = {
-      to.foldLeft(valuation){
+      val result = to.foldLeft(valuation){
         case (m,_:InputNode[_])      => m
         case (m,cn: UntypedComputation[_]) =>
           val args: Seq[Any] = cn.predecessors.map(m)
           val result = cn.compute(args)
           m + (cn -> result)
       }
+
+      val now = System.nanoTime()
+      val procNumber = numProcessed.incrementAndGet()
+      rc.reportIntervall.foreach{intervall =>
+        this.synchronized {
+          if(now >= lastReport.get() + intervall*1e9){
+            val ratio = procNumber/numTasks.toDouble
+            val dateString: String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date())
+            val duration = (now - startTime) * 1e-9
+            val eta = duration/ratio * (1-ratio)
+            System.err.println(f"$dateString - progress ${ratio*100}%.2f%% ($procNumber/$numTasks) - ETA ${eta/60}%.0f min")
+            lastReport.set(now)
+          }
+        }
+      }
+
+      result
     }
 
     def buildRow(valuation: Map[Node,Any]): Seq[String] = columns.flatMap{ case (node, cols) =>
