@@ -97,7 +97,9 @@ case class ExpApp(name: String = "expapp", appversion: String = "0.0", descripti
     val ins = to.collect{case in: InputNode[_] => in}
 
     val assignments: IndexedSeq[(Long,Seq[Any])] =
-      Random.shuffle(rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), bs).map(bs -> _)).toIndexedSeq)
+      ((if(rc.reportIntervall.isDefined) Random.shuffle(_) else identity(_)): IndexedSeq[(Long,Seq[Any])] => IndexedSeq[(Long,Seq[Any])]).apply(
+        rc.baseSeeds.iterator.flatMap(bs => assignmentSequence(ins.map(exp.inputND), bs).map(bs -> _)).toIndexedSeq
+      )
 
     val numTasks: Int = assignments.size
 

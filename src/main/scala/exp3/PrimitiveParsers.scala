@@ -1,11 +1,8 @@
 package exp3
 
-import fastparse._
+import fastparse.all._
 
-/**
- * Created by thomas on 20.08.15.
- */
-object PrimitiveParsers{
+object PrimitiveParsers {
   case class NamedFunction[T, V](f: T => V, name: String) extends (T => V){
     def apply(t: T) = f(t)
     override def toString() = name

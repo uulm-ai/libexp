@@ -4,10 +4,8 @@
 
 package exp3
 
-import fastparse.Parser.Literal
-import fastparse._
-
-import scala.util.Random
+import fastparse.all._
+import fastparse.parsers.Terminals.Literal
 
 trait StratParser[T] extends NDParser[T]{
   final def syntaxDescription: String =
@@ -16,13 +14,30 @@ trait StratParser[T] extends NDParser[T]{
       |the format: """.stripMargin + singleValueFormat
 
   final def nd: P[NonDeterminism[T]] = P(fixedParser | strat)
-  final def strat: P[Stratification[T]] = P( "{" ~ singleValue.rep1(delimiter=",") ~ "}").map(Stratification(_))
+  final def strat: P[Stratification[T]] = P( "{" ~ singleValue.rep(sep=",",min=1) ~ "}").map(Stratification(_))
   final def fixedParser: P[Stratification[T]] = singleValue.map(only(_))
 
   /** Parser that parses a single value. */
   def singleValue: P[T]
   /** Describe syntax of specifying single values. */
   def singleValueFormat: String
+}
+
+
+case class NDInput[A: NDParser](name: String, default: NonDeterminism[A]) extends InputNode[A] {
+  override def parser: NDParser[A] = implicitly[NDParser[A]]
+}
+
+case class FixedInput[A: P](name: String, defaultValue: Option[A], report: Boolean = true) extends InputNode[A] {
+
+  override def default: NonDeterminism[A] = defaultValue.map(only).getOrElse(NonDeterminism.empty)
+
+  override def parser: NDParser[A] = new NDParser[A] {
+    override def nd: P[NonDeterminism[A]] = implicitly[Parser[A]].map(only)
+    override def syntaxDescription: String = "just a value"
+  }
+
+  override val columns: Seq[(String, (A) => String)] = if(report) Seq(name -> (_.toString)) else Seq()
 }
 
 case class EnumP(name: String, values: Set[String], default: NonDeterminism[String]) extends InputNode[String]{
@@ -33,6 +48,17 @@ case class EnumP(name: String, values: Set[String], default: NonDeterminism[Stri
     /** Parser that parses a single value. */
     override def singleValue: P[String] = values.toSeq.sorted.map(Literal(_)).foldLeft[Parser[Unit]](Fail){case (pp,p) => pp | p}.!
   }
+}
+
+case class TypedEnumP[A](name: String, values: Map[String,A], default: NonDeterminism[A]) extends InputNode[A] {
+  override def parser: NDParser[A] = new StratParser[A] {
+    /** Describe syntax of specifying single values. */
+    override def singleValueFormat: String = s"one of ${values.keys.mkString(",")}; default is $default"
+    /** Parser that parses a single value. */
+    override def singleValue: P[A] = values.keys.toSeq.sorted.map(Literal(_)).foldLeft[Parser[Unit]](Fail){case (pp,p) => pp | p}.!.map(values)
+  }
+
+  override val columns: Seq[(String, (A) => String)] = Seq(name -> (a => values.find(_._2 == a).map(_._1).getOrElse("oops")))
 }
 
 case class StringP(name: String, pattern: P[String] = CharsWhile(c => !Set(' ',',','{','}')(c),min=1).!) extends InputNode[String]{

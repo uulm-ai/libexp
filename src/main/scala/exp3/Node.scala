@@ -4,7 +4,7 @@
 
 package exp3
 
-import fastparse.P
+import fastparse.all._
 import scopt.{OptionParser, Read}
 
 import scala.language.reflectiveCalls
@@ -24,9 +24,17 @@ sealed trait Node extends Serializable {
   }
 }
 
-sealed trait ValuedNode[T] extends Node {
+sealed trait ValuedNode[T] extends Node { outer =>
   /** The columns produced by this node. */
   def columns: Seq[(String,T => String)] = Seq()
+
+  def map[S](f: T => S) = new UntypedComputation[S] {
+    override def predecessors: Seq[Node] = Seq(outer)
+    override def compute(args: Seq[Any]): S = f(args.head.asInstanceOf[T])
+    //TODO find a got solution for temporary names
+    /** The name of this node. */
+    override def name: String = outer.name + s":${f.hashCode()}"
+  }
 }
 
 trait NDParser[T] {
@@ -59,7 +67,6 @@ trait InputNode[T] extends ValuedNode[T] {
 
   /** Installs a handler for the current InputNode within a scopt CLI-Parser. */
   def install(optParser: OptionParser[(RunConfig,Map[InputNode[_], NonDeterminism[_]])]): Unit = {
-    import fastparse._
     implicit val tReader: Read[NonDeterminism[T]] = Read.reads(s => parser.nd.parse(s) match {
       case Result.Success(x,_) => x
       case o                   => sys.error(o.toString)
