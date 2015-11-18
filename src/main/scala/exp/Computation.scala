@@ -2,7 +2,8 @@ package exp
 
 import shapeless._
 import shapeless.ops.function.FnToProduct
-import shapeless.ops.hlist.{Mapped, ToTraversable}
+import shapeless.ops.hlist.{Comapped, Mapped, ToTraversable}
+import shapeless.ops.product.ToHList
 import shapeless.ops.traversable.FromTraversable
 
 /** An edge is the basic building block of a computation graph. It represents a typed, multi-ary function with a
@@ -21,22 +22,44 @@ case class Computation[+T] protected[Computation](name: String,
   * Created by thomas on 17.11.15.
   */
 object Computation {
-  import shapeless.syntax.std.traversable._
-  def apply[NHL <: HList, IHL <: HList, R, F](_name: String,
-                                              expTime: Double)
-                                             (deps: NHL)
-                                             (f: F)
-                                             ( implicit
-                                               mapped: Mapped.Aux[IHL,Node,NHL],
-                                               fn: FnToProduct.Aux[F,IHL => R],
-                                               trN: ToTraversable.Aux[NHL, IndexedSeq, Node[Any]],
-                                               trI: FromTraversable[IHL]
-                                             )
-  : Computation[R] = {
-    val comp: IndexedSeq[Any] => R = (isa: IndexedSeq[Any]) => fn(f)(isa.toHList[IHL]
-      .getOrElse(sys.error(s"error during conversion of '$isa' to hlist via '$trI' in node '${_name}'")))
-    new Computation[R](_name, deps.to[IndexedSeq], comp, expectedLength = 1d, expectedCPU = expTime)
+  trait CompTyper[-N, +R]{
+    type F
+
+    def nodesToSeq(nhl: N): IndexedSeq[Node[_]]
+    def buildComputation(f: F): IndexedSeq[Any] => R
   }
+  object CompTyper {
+    import shapeless.syntax.std.product._
+
+    type Aux[N, R, Fx] = CompTyper[N, R] {type F = Fx}
+
+    implicit def shapelessProductInstance[In <: Product, N <: HList, I <: HList, R, Fx]
+    (implicit
+     toHl: ToHList.Aux[In,N],
+     mapped: Comapped.Aux[N, Node, I],
+     fn: FnToProduct.Aux[Fx, I => R],
+     trN: ToTraversable.Aux[N, IndexedSeq, Node[Any]],
+     trI: FromTraversable[I])
+    : Aux[In, R, Fx] = new CompTyper[In, R] {
+      override type F = Fx
+      override def nodesToSeq(nhl: In): IndexedSeq[Node[_]] = trN(toHl(nhl))
+      override def buildComputation(f: F): (IndexedSeq[Any]) => R = { (ia: IndexedSeq[Any]) =>
+        fn(f)(trI.apply(ia).getOrElse(sys.error(s"error during conversion of '$ia' to hlist via '$trI'")))
+      }
+    }
+
+    implicit def shapelessSingletonInstance[T, In <: Node[T], R]
+    : Aux[In, R, T => R] = new CompTyper[In, R] {
+      override type F = T => R
+      override def nodesToSeq(nhl: In): IndexedSeq[Node[_]] = IndexedSeq(nhl)
+      override def buildComputation(f: F): (IndexedSeq[Any]) => R = { (ia: IndexedSeq[Any]) =>
+        f(ia.head.asInstanceOf[T])
+      }
+    }
+  }
+
+  def apply[N, R, F](name: String, expTime: Double = 0.001d)(deps: N)(f: F)(implicit ct: CompTyper.Aux[N,R,F]): Computation[R] =
+    new Computation[R](name, ct.nodesToSeq(deps), ct.buildComputation(f), 1d, expTime)
 }
 
 case class LiftND[F](from: Node[Stream[F]], expectedLength: Double) extends Edge[F] {

@@ -1,7 +1,9 @@
 package exp
 
+import exp.Computation.CompTyper
 import org.specs2.matcher.{MatchResult, Expectable, Matcher}
 import org.specs2.mutable.Specification
+import shapeless._
 
 import scalaz.Validation
 
@@ -10,15 +12,22 @@ import scalaz.Validation
   */
 class ComputationTest extends Specification {
 
-  "foo" >> (1 === 1)
-  "simple lift test" >> {
-    val lifted: LiftND[Int] = Fixed("fixed", IndexedSeq(Stream(1,2),Stream(3,4))).lift(2)
-    val result = for{
-      closed <- OpenQuery(Seq(lifted)).close(Map())
-      str = Driver.evalGraph(closed,0L)
-    } yield str
-    result must beSuccessfulWith(haveLength(3))
+  def evalClosed(nodes: Node[_]*): Val[Stream[Valuation]] = for{
+    closed <- OpenQuery(nodes).close(Map())
+    str = Driver.evalGraph(closed,0L)
+  } yield str
+
+  "simplest test" >>
+    (evalClosed(Fixed("f",1 to 5)) must beSuccessfulWith(haveLength(5)))
+  "simple lift test" >>
+    (evalClosed(Fixed("fixed", IndexedSeq(Stream(1,2),Stream(3,4))).lift(2)) must beSuccessfulWith(haveLength(4)))
+  "cross product 2x2" >> {
+    val i1: Node[Int] = Fixed("i1", 1 to 3)
+    val i2: Node[Int] = Fixed("i2", 1 to 2)
+    val c = Computation("paste")((i1,i2))((i1: Int, i2: Int) => i1 + i2)
+    evalClosed(c) must beSuccessfulWith(haveLength(6))
   }
+
 
   def beSuccessfulWith[T](m: Matcher[T]): Matcher[Validation[_,T]] =
     new Matcher[Validation[_, T]] {
