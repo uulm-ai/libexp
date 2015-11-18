@@ -1,30 +1,65 @@
 package exp
 
-import com.typesafe.scalalogging.StrictLogging
-import fastparse.all._
-import fastparse.core.Result._
-import shapeless._
 import scala.annotation.tailrec
-import scalaz.Validation
+import com.typesafe.scalalogging.StrictLogging
 
-case class CliOpt[+T](long: String, short: Option[Char], valueParser: P[T], default: Option[T], description: String){
-  def argNameP: P[Unit] = P(("--" ~ long) | ("-" ~ short.map(c => CharIn(Seq(c))).getOrElse(P(Fail))))
-  def cliParser(sep: P[Unit]): P[T] = argNameP ~ sep ~ valueParser
+import scalaz._
+import Scalaz._
+import Validation._
+
+class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
+  lazy val allNodes: Seq[Node[_]] = Driver.nodeClosure(queryNodes){
+    case e: Edge[_] => e.dependencies
+    case _ => Set()
+  }.toSeq
+
+  lazy val openNodes: Seq[FromString[Any]] = allNodes.collect{
+    case fs: FromString[_] => fs
+  }
+
+  def close(substitution: Map[String,Closed[_]]): Val[ClosedQuery] = {
+    def closeI(n: Node[_]): Val[Closed[_]] = substitution.get(n.name) match {
+      case Some(c) => c.successNel
+      case None =>
+        n match {
+          case cl: Closed[_] => cl.successNel
+          case fs: FromString[_] =>
+            substitution
+              .get(fs.name)
+              .orElse(fs.default)
+              .fold[Val[Closed[_]]](s"missing required argument '--${fs.cliOpt.long}'".failureNel)(a => a.successNel)
+          case e: Edge[_] => e.close[Val](closeI)
+        }
+    }
+
+    allNodes.toList.map(closeI).sequence.map(ClosedQuery(_))
+  }
+
+  override def hashCode(): Int = queryNodes.toSet.hashCode()
+
+  override def equals(obj: scala.Any): Boolean = obj match {
+    case q: OpenQuery => q.queryNodes.toSet == queryNodes.toSet
+    case _ => false
+  }
 }
 
-object CliOpt {
-  val sepChar = '\t'
-  val sepP: P[Unit] = P(CharIn(Seq(sepChar)))
+object OpenQuery {
+  def apply(qNs: Iterable[Node[_]]): OpenQuery = new OpenQuery(qNs.toSeq.distinct)
+}
 
-  def parse[LUB](args: Array[String], opts: Seq[CliOpt[LUB]]): Validation[String,Seq[LUB]] = {
-    val p: P[Seq[LUB]] = opts.map(opt => opt.cliParser(sepP)).reduce(_ | _).rep(sep = sepP)
+class ClosedQuery protected[ClosedQuery](val queryNodes: Seq[Closed[_]]) {
+  lazy val allNodes: Seq[Closed[_]] = Driver.nodeClosure(queryNodes)(_.closedDependencies).toSeq
 
-    val either = p.parse(args.mkString(sepChar.toString)) match {
-      case Failure(x,y) => Left(s"failed to parse input: $x")
-      case Success(value,_)      => Right(value)
-    }
-    Validation.fromEither(either)
+  override def hashCode(): Int = queryNodes.toSet.hashCode()
+
+  override def equals(obj: scala.Any): Boolean = obj match {
+    case cq: ClosedQuery => cq.queryNodes.toSet == queryNodes.toSet
+    case _ => false
   }
+}
+
+object ClosedQuery {
+  def apply(qNs: Iterable[Closed[_]]) = new ClosedQuery(qNs.toSeq.distinct)
 }
 
 object Driver extends StrictLogging {
@@ -34,49 +69,18 @@ object Driver extends StrictLogging {
       .dropWhile(two => two(0).size != two(1).size)
       .next().head
 
-  def parseCli(query: Set[Node[_]], args: Array[String]): Validation[String,Seq[Closed[_]]] = {
-    import Validation._
-    import scalaz.{Node => _, _}
-    import Scalaz._
+  def parseCli(query: OpenQuery, args: Array[String]): Val[ClosedQuery] = for {
+    cliMapping <- CliOpt.parse(args, query.openNodes.toSeq.map(_.cliOpt))
+    parsedMap: Map[String, Seq[Closed[Any]]] = cliMapping.groupBy(_.name)
+    injection <- parsedMap.map{
+      case (key, Seq(v))=> (key -> v).successNel
+      case (key, vals)  => s"parameter $key may only be given once".failureNel
+    }.toList.sequenceU
+    closed <- query.close(injection.toMap)
+  } yield closed
 
-    val nodes: Set[Node[_]] = nodeClosure(query){
-      case e: Edge[_] => e.dependencies
-      case _ => Set()
-    }
-
-    val cliInputs: List[FromString[Any]] = nodes.collect{
-      case fs: FromString[_] => fs
-    }.toList
-
-    val result: Validation[String, Seq[Closed[Any]]] = CliOpt.parse(args, cliInputs.toSeq.map(_.cliOpt))
-
-    for{
-      parsed <- result
-      parsedMap: Map[String, Seq[Closed[Any]]] = parsed.groupBy(_.name)
-      allClosed <- cliInputs.map(ci =>
-        parsedMap
-          .get(ci.name).flatMap(_.headOption)
-          .orElse(ci.default)
-          .fold[Validation[String,Closed[Any]]](failure(s"argument '--${ci.cliOpt.long}' is required"))(success)
-      ).sequenceU
-    } yield allClosed
-  }
-
-  def closeGraph(query: Iterable[Node[_]], substitution: Map[String,Closed[_]]): Iterable[Closed[_]] = {
-    def close(n: Node[_]): Closed[_] = substitution.get(n.name) match {
-      case Some(c) => c
-      case None =>
-        n match {
-          case cl: Closed[_] => cl
-          case fs: FromString[_] => substitution.getOrElse(fs.name, sys.error("this should not happen: input node not fpund in CLI input"))
-          case e: Edge[_] => e.close(close)
-        }
-    }
-    query.map(close)
-  }
-
-  def evalGraph(query: Iterable[Closed[_]], seed: Long): Stream[Valuation] = {
-    val allNodes: Set[Closed[_]] = nodeClosure(query)(_.closedDependencies)
+  def evalGraph(query: ClosedQuery, seed: Long): Stream[Valuation] = {
+    val allNodes = query.allNodes
 
     @tailrec def topoSort(to: List[Closed[_]]): List[Closed[_]] = {
       val cand = allNodes.filter(n => n.closedDependencies.forall(to.contains) && !to.contains(n))
@@ -97,14 +101,10 @@ object Driver extends StrictLogging {
     }
   }
 
-  def run(query: Set[Node[_]], args: Array[String]): Unit = {
-    import scalaz.std.string._
-
+  def run(query: Iterable[Node[_]], args: Array[String]): Unit = {
     val r = for{
-      inputs <- parseCli(query, args)
+      closed <- parseCli(OpenQuery(query), args)
       _ = logger.info("parsed cli input")
-      closed = closeGraph(query, inputs.groupBy(_.name).mapValues(_.head))
-      _ = logger.info("closed graph")
       result: Stream[Valuation] = evalGraph(closed, 0L)
     } yield result
     r.foreach(rs => println(rs.mkString("\n")))

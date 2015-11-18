@@ -2,6 +2,11 @@ package exp
 
 import fastparse.all._
 
+import scala.language.higherKinds
+import scalaz._
+import std.list._
+import syntax.traverse._
+
 /** A node within the computation graph has a type `T` and a name. */
 sealed trait Node[+T] { outer =>
   /** Has to be unique within the computation graph. */
@@ -79,12 +84,16 @@ trait Edge[+T] extends Node[T]{ outer =>
   def computation: IndexedSeq[Any] => Stream[T]
   def valuationStream(v: Valuation): Stream[Valuation] =
     computation(dependencies.map(v.apply[Any](_))).map(t => v + (this -> t))
-  def close(r: Node[_] => Closed[_]) = new ClosedEdge[T] {
-    override def computation: (IndexedSeq[Any]) => Stream[T] = outer.computation
-    override def closedDependencies: IndexedSeq[Closed[Any]] = outer.dependencies.map(r)
-    override def expectedLength: Double = outer.expectedLength
-    override def expectedCPU: Double = outer.expectedCPU
-    /** Has to be unique within the computation graph. */
-    override def name: String = outer.name
+  def close[M[+_]](r: Node[_] => M[Closed[_]])(implicit ap: Applicative[M]): M[ClosedEdge[T]] = {
+    outer.dependencies.map(r).toList.sequence.map(closed =>
+      new ClosedEdge[T] {
+        override def computation: (IndexedSeq[Any]) => Stream[T] = outer.computation
+        override def closedDependencies: IndexedSeq[Closed[Any]] = closed.toIndexedSeq
+        override def expectedLength: Double = outer.expectedLength
+        override def expectedCPU: Double = outer.expectedCPU
+        /** Has to be unique within the computation graph. */
+        override def name: String = outer.name
+      }
+    )
   }
 }
