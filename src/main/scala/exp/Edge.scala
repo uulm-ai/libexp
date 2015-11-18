@@ -45,6 +45,7 @@ class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
 
 object OpenQuery {
   def apply(qNs: Iterable[Node[_]]): OpenQuery = new OpenQuery(qNs.toSeq.distinct)
+  def apply(qNs: Node[_]*): OpenQuery = new OpenQuery(qNs.toSeq.distinct)
 }
 
 class ClosedQuery protected[ClosedQuery](val queryNodes: Seq[Closed[_]]) {
@@ -72,6 +73,7 @@ object Driver extends StrictLogging {
   def parseCli(query: OpenQuery, args: Array[String]): Val[ClosedQuery] = for {
     cliMapping <- CliOpt.parse(args, query.openNodes.toSeq.map(_.cliOpt))
     parsedMap: Map[String, Seq[Closed[Any]]] = cliMapping.groupBy(_.name)
+    _ = logger.info(s"parsed from arguments: [${parsedMap.mkString("; ")}]")
     injection <- parsedMap.map{
       case (key, Seq(v))=> (key -> v).successNel
       case (key, vals)  => s"parameter $key may only be given once".failureNel
@@ -79,7 +81,7 @@ object Driver extends StrictLogging {
     closed <- query.close(injection.toMap)
   } yield closed
 
-  def evalGraph(query: ClosedQuery, seed: Long): Stream[Valuation] = {
+  def evalGraph(query: ClosedQuery, seed: Long): Val[Stream[Valuation]] = {
     val allNodes = query.allNodes
 
     @tailrec def topoSort(to: List[Closed[_]]): List[Closed[_]] = {
@@ -98,16 +100,7 @@ object Driver extends StrictLogging {
     ){
       case (v,edge: ClosedEdge[_]) => v.flatMap(edge.valuationStream)
       case (_, RNGSeed) => sys.error("this should not happen")
-    }
-  }
-
-  def run(query: Iterable[Node[_]], args: Array[String]): Unit = {
-    val r = for{
-      closed <- parseCli(OpenQuery(query), args)
-      _ = logger.info("parsed cli input")
-      result: Stream[Valuation] = evalGraph(closed, 0L)
-    } yield result
-    r.foreach(rs => println(rs.mkString("\n")))
+    }.successNel
   }
 }
 

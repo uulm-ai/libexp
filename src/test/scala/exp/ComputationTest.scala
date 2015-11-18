@@ -1,20 +1,13 @@
 package exp
 
-import exp.Computation.CompTyper
-import org.specs2.matcher.{MatchResult, Expectable, Matcher}
+import fastparse.all._
 import org.specs2.mutable.Specification
-import shapeless._
 
-import scalaz.Validation
-
-/**
-  * Created by thomas on 18.11.15.
-  */
-class ComputationTest extends Specification {
+class ComputationTest extends Specification with ValMatchers {
 
   def evalClosed(nodes: Node[_]*): Val[Stream[Valuation]] = for{
     closed <- OpenQuery(nodes).close(Map())
-    str = Driver.evalGraph(closed,0L)
+    str <- Driver.evalGraph(closed,0L)
   } yield str
 
   "simplest test" >>
@@ -28,20 +21,20 @@ class ComputationTest extends Specification {
     evalClosed(c) must beSuccessfulWith(haveLength(6))
   }
 
+  "bug from test app" >> {
+    val stringIn: Node[String] = FromString[String]("string", P(CharIn("abc").rep).!.map(s => Fixed("string", IndexedSeq(s))))
+    val stringIn2: Node[Char] = FromString[String]("string2", P(CharIn("abcdefg").rep).!.map(s => Fixed("string2", IndexedSeq(s))))
+      .map("stream2", (_:String).toStream, 0d).lift(10)
+    val map = Computation("map", 1d)(stringIn){(string: String) => string.toStream}
+    val lifted: Node[Char] = LiftND(map, 2)
+    val mapChars = Computation("mapChars", 1d)(stringIn2){(c2: Char) => s"char x $c2"}
 
-  def beSuccessfulWith[T](m: Matcher[T]): Matcher[Validation[_,T]] =
-    new Matcher[Validation[_, T]] {
-      def apply[S <: Validation[_, T]](value: Expectable[S]): MatchResult[S] = {
-        value.value.fold(
-          x => Matcher.failure("Validation is failure, but must be success", value),
-          { (t: T) =>
-            val result = m.apply(t.as(identity))
-            if(result.isSuccess)
-              Matcher.success("ok",value)
-            else
-              Matcher.failure("Validation is successful, but " + result.message, value)
-          }
-        )
-      }
-    }
+    val args = Array("--string","aa","--string2","cd")
+    val r = for{
+      withCli <- Driver.parseCli(OpenQuery(mapChars), args)
+      result <- Driver.evalGraph(withCli, 0L)
+    } yield result
+
+    r must beSuccessfulWith(haveLength(4))
+  }
 }

@@ -15,6 +15,14 @@ object Test {
     val lifted: Node[Char] = LiftND(map, 2)
     val mapChars = Computation("mapChars", 1d)(stringIn2){(c2: Char) => s"char x $c2"}
 
-    Driver.run(Set(mapChars), args)
+    val result: Val[Stream[Valuation]] = for{
+      closed <- Driver.parseCli(OpenQuery(mapChars), args)
+      eval <- Driver.evalGraph(closed, 0L)
+    } yield eval
+
+    result.fold(
+      e => println("error: " + e),
+      _.foreach(println)
+    )
   }
 }
