@@ -50,7 +50,7 @@ object CliOpt extends StrictLogging {
     for {
       _ <- validateDistinct(opts.flatMap(_.argIdentifiers))
       kv <- args.grouped(2).toList
-        .successNel[String].ensureNel("requiring an even number of arguments", _.forall(_.size % 2 == 0))
+        .successNel[String].ensureNel("requiring an even number of arguments", _.forall(_.length % 2 == 0))
       parsedKV <- kv.map(two => parsePair(two(0),two(1))).sequence
       parsedResult = parsedKV.toMap
       result <- opts.toList.map(co => parsedResult.get(co).orElse(co.default).toSuccessNel(s"missing required argument  '--${co.long}'")).sequenceU

@@ -74,7 +74,7 @@ object Fixed {
 }
 
 /** An input node without dependencies.
-  * This node cannot be evaluated, it gets substituted with a different node at preprocessing time. */
+  * This node cannot be evaluated, it gets substituted with a different node at pre-processing time. */
 case class FromCLI[+T](name: String,
                        valueParser: String => Val[Closed[T]],
                        default: Option[Closed[T]] = None,
@@ -112,7 +112,7 @@ trait Edge[+T] extends Node[T]{ outer =>
   def dependencies: IndexedSeq[Node[Any]]
   def computation: IndexedSeq[Any] => Stream[T]
   def valuationStream(v: Valuation): Stream[Valuation] =
-    computation(dependencies.map(v.apply[Any](_))).map(t => v + (this -> t))
+    computation(dependencies.map(v.apply[Any])).map(t => v + (this -> t))
   def close[M[+_]](r: Node[_] => M[Closed[_]])(implicit ap: Applicative[M]): M[ClosedEdge[T]] = {
     outer.dependencies.map(r).toList.sequence.map(closed =>
       new ClosedEdge[T] {

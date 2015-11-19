@@ -1,18 +1,30 @@
 package exp
 
+import org.specs2.matcher.Matcher
 import org.specs2.mutable.Specification
 import scalaz.syntax.apply._
 
 class ContextTest extends Specification {
 
   "collecting columns must work" >> {
-    val f1 = Fixed[Int]("number.1", 1 to 3)
-      .addColumn("n1", _.toString)
-    val f2 = Fixed[Int]("number.2", 1 to 3)
-      .addColumn("n2", _.toString)
+    val f1 = Fixed[Int]("n1", 1 to 3).reportVariable
+    val f2 = Fixed[Int]("n2", 1 to 3).reportVariable
 
     val result = ^(f1,f2)(_ * _).addColumn("product", _.toString)
 
-    result.columns.map(_._2).toSet === Set("n1","n2","product")
+    result must haveColumns("n1","n2","product")
   }
+
+//  "context works with compuation" >> {
+//    val f1 = Fixed("n1", 1 to 3).addAsVariable
+//    val f2 = Fixed("n2", 7 to 9).addAsVariable
+//
+//    val computed = Computation("prod",0.001d)((f1,f2))((_: Int) * (_: Int))
+//      .addAsVariable
+//
+//    computed must haveColumns("n1","n2","product")
+//  }
+
+  def haveColumns(cols: String*): Matcher[Context[_]] =
+    containTheSameElementsAs(cols.toSeq) ^^ ((_:Context[_]).columns.map(_._2))
 }

@@ -13,4 +13,10 @@ package object exp {
   }
 
   implicit def nodeToContext[T](n: Node[T]): Context[T] = Context(n)
+
+  def graphClosure[A](query: Iterable[A])(pred: A => Iterable[A]): Set[A] =
+    Iterator.iterate(query.toSet)(found => found.flatMap(pred) ++ found)
+      .sliding(2)
+      .dropWhile(two => two(0).size != two(1).size)
+      .next().head
 }

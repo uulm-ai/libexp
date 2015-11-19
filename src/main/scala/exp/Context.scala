@@ -2,12 +2,12 @@ package exp
 
 import scalaz.Apply
 
-/**
-  * Created by thomas on 19.11.15.
-  */
-case class Context[T](node: Node[T], columns: Seq[(String, String, Any => String)] = Seq(), hiddenNodes: Seq[Node[Any]] = Seq()){
+/** A Context holds a node, and also the columns producing the observed variables. */
+case class Context[+T](node: Node[T], columns: Seq[(String, String, Any => String)] = Seq()){
   def addColumn(name: String, report: T => String): Context[T] =
     this.copy(columns = columns :+ (node.name, name, ((_: Any).asInstanceOf[T]) andThen report))
+  def reportVariable: Context[T] = addColumn(node.name, _.toString)
+  def reportVariable(f: T => String): Context[T] = addColumn(node.name, f)
 }
 
 object Context {
@@ -17,6 +17,6 @@ object Context {
       Context(^(fa.node,f.node)((a,g) => g(a)), fa.columns ++ f.columns)
 
     override def map[A, B](fa: Context[A])(f: (A) => B): Context[B] =
-      Context(fa.node.map(f), fa.columns, fa.hiddenNodes)
+      Context(fa.node.map(f), fa.columns)
   }
 }

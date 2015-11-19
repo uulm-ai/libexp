@@ -1,14 +1,13 @@
 package exp
 
-import scala.annotation.tailrec
 import com.typesafe.scalalogging.StrictLogging
 
 import scalaz.std.list._
 import scalaz.syntax.validation._
 import scalaz.syntax.traverse._
 
-class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
-  lazy val allNodes: Seq[Node[_]] = Driver.nodeClosure(queryNodes){
+class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]) extends StrictLogging {
+  lazy val allNodes: Seq[Node[_]] = graphClosure(queryNodes){
     case e: Edge[_] => e.dependencies
     case _ => Set()
   }.toSeq
@@ -41,6 +40,14 @@ class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
     case q: OpenQuery => q.queryNodes.toSet == queryNodes.toSet
     case _ => false
   }
+
+  /** Use the provided command-line arguments to close this query. */
+  def parseCli(args: Array[String]): Val[ClosedQuery] = for {
+    cliMapping <- CliOpt.parse[Closed[Any]](args, openNodes.map(_.cliOpt))
+    parsedMap = openNodes.map(_.name).zip(cliMapping).toMap
+    _ = logger.info(s"parsed from arguments: [${parsedMap.mkString("; ")}]")
+    closed <- close(parsedMap)
+  } yield closed
 }
 
 object OpenQuery {
@@ -49,7 +56,7 @@ object OpenQuery {
 }
 
 class ClosedQuery protected[ClosedQuery](val queryNodes: Seq[Closed[_]]) {
-  lazy val allNodes: Seq[Closed[_]] = Driver.nodeClosure(queryNodes)(_.closedDependencies).toSeq
+  lazy val allNodes: Seq[Closed[_]] = graphClosure(queryNodes)(_.closedDependencies).toSeq
 
   override def hashCode(): Int = queryNodes.toSet.hashCode()
 
@@ -61,45 +68,5 @@ class ClosedQuery protected[ClosedQuery](val queryNodes: Seq[Closed[_]]) {
 
 object ClosedQuery {
   def apply(qNs: Iterable[Closed[_]]) = new ClosedQuery(qNs.toSeq.distinct)
-}
-
-object Driver extends StrictLogging {
-  def nodeClosure[A](query: Iterable[A])(pred: A => Iterable[A]): Set[A] =
-    Iterator.iterate(query.toSet)(found => found.flatMap(pred) ++ found)
-      .sliding(2)
-      .dropWhile(two => two(0).size != two(1).size)
-      .next().head
-
-  def parseCli(query: OpenQuery, args: Array[String]): Val[ClosedQuery] = {
-    val openNodes = query.openNodes.toSeq
-    for {
-      cliMapping <- CliOpt.parse[Closed[Any]](args, openNodes.map(_.cliOpt))
-      parsedMap = openNodes.map(_.name).zip(cliMapping).toMap
-      _ = logger.info(s"parsed from arguments: [${parsedMap.mkString("; ")}]")
-      closed <- query.close(parsedMap)
-    } yield closed
-  }
-
-  def evalGraph(query: ClosedQuery, seed: Long): Val[Stream[Valuation]] = {
-    val allNodes = query.allNodes
-
-    @tailrec def topoSort(to: List[Closed[_]]): List[Closed[_]] = {
-      val cand = allNodes.filter(n => n.closedDependencies.forall(to.contains) && !to.contains(n))
-      if(cand.isEmpty) to.reverse
-      else topoSort(cand.head :: to)
-    }
-
-    //first node in order is the RNG node, whether it's used or not
-    val topoOrder = topoSort(List(RNGSeed))
-
-    logger.info(s"topological order for evaluation: ${topoOrder.mkString(", ")}")
-
-    topoOrder.tail.foldLeft(
-      Stream(Valuation(Map(RNGSeed.name -> seed)))
-    ){
-      case (v,edge: ClosedEdge[_]) => v.flatMap(edge.valuationStream)
-      case (_, RNGSeed) => sys.error("this should not happen")
-    }.successNel
-  }
 }
 
