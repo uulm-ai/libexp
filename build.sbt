@@ -22,9 +22,6 @@ licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
 
 scalaVersion := "2.11.7"
 
-
-libraryDependencies += "de.uni-ulm" %% "vultura-util" % "24.0.0-DEV"
-
 libraryDependencies ++= Seq(
   "com.lihaoyi" %% "fastparse" % "0.2.1",
   "com.github.scopt" %% "scopt" % "3.2.0",
@@ -40,5 +37,3 @@ libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
 libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.12"
 
 libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.4" % "test"
-
-resolvers += "mvn@mirkwood" at "http://mirkwood.informatik.uni-ulm.de/mvn"
