@@ -15,29 +15,31 @@ sealed trait Node[+T] { outer =>
   def name: String
   def expectedLength: Double
   def expectedCPU: Double
+  def singleResult: Boolean
 
-  override final def hashCode(): Int = name.hashCode
-
-  override final def equals(obj: scala.Any): Boolean = obj match {
-    case e: Edge[_] => e.name == name
-    case _ => false
-  }
-
-  override def toString: String = s"Node($name)"
-
-  def map[S](_name: String, f: T => S, expectedTime: Double = 0d): Edge[S] = new Edge[S] {
-    override def dependencies: IndexedSeq[Node[Any]] = IndexedSeq(outer)
-
-    override def computation: (IndexedSeq[Any]) => Stream[S] = { ins =>
-      Stream(f(ins.head.asInstanceOf[T]))
-    }
-    override def expectedLength: Double = outer.expectedLength
-    override def expectedCPU: Double = outer.expectedCPU + expectedCPU
-    /** Has to be unique within the computation graph. */
-    override def name: String = _name
-  }
+  def mapNamed[S](_name: String, f: T => S, expectedTime: Double = 0d): Edge[S] = Computation(
+    name = _name,
+    dependencies = IndexedSeq(outer),
+    f = (ins: IndexedSeq[Any]) => f(ins.head.asInstanceOf[T]),
+    expectedLength = outer.expectedLength,
+    expectedCPU = outer.expectedCPU + expectedCPU
+  )
 
   def lift[S](expectedLength: Double)(implicit ev: T <:< Stream[S]) = LiftND(outer.asInstanceOf[Node[Stream[S]]],expectedLength)
+}
+
+object Node {
+  implicit val appInstance: Apply[Node] = new Apply[Node]{
+    override def map[A, B](fa: Node[A])(f: (A) => B): Node[B] = fa.mapNamed(s"${fa.name}.$f",f,1d)
+
+    override def ap[A, B](fa: => Node[A])(f: => Node[(A) => B]): Node[B] = new Computation[B](
+      s"appy.${fa.name}.${f.name}",
+      IndexedSeq(fa,f),
+      (ins: IndexedSeq[Any]) => ins(1).asInstanceOf[A => B].apply(ins(0).asInstanceOf[A]),
+      1d,
+      0.001d
+    )
+  }
 }
 
 sealed trait Closed[+T] extends Node[T] {outer =>
@@ -50,11 +52,12 @@ trait ClosedEdge[+T] extends Edge[T] with Closed[T] {
 
 /** A seed node whose value is provided by the runtime. */
 case object RNGSeed extends Closed[Long] {
-  override def closedDependencies: IndexedSeq[Closed[Any]] = IndexedSeq()
+  val closedDependencies: IndexedSeq[Closed[Any]] = IndexedSeq()
   /** Has to be unique within the computation graph. */
-  override def name: String = "RNGSeed"
-  override def expectedLength: Double = 1d
-  override def expectedCPU: Double = 0.0001d
+  val name: String = "RNGSeed"
+  val expectedLength: Double = 1d
+  val expectedCPU: Double = 0.0001d
+  val singleResult: Boolean = true
 }
 
 /** This is a source node with fixed values. */
@@ -63,6 +66,7 @@ case class Fixed[+T](name: String, values: IndexedSeq[T]) extends ClosedEdge[T] 
   val computation: IndexedSeq[Any] => Stream[T] = _ => values.toStream
   override def expectedLength: Double = values.size
   override def expectedCPU: Double = 0.00001d
+  override def singleResult: Boolean = values.size == 1
 }
 
 object Fixed {
@@ -80,6 +84,7 @@ case class FromCLI[+T](name: String,
   def cliOpt: CliOpt[Closed[T]] = CliOpt[Closed[T]](name,valueParser,description,shortCommand,default)
   override def expectedLength: Double = Double.NaN
   override def expectedCPU: Double = Double.NaN
+  override def singleResult: Boolean = false
 }
 
 object FromCLI extends StrictLogging {
@@ -117,6 +122,13 @@ trait Edge[+T] extends Node[T]{ outer =>
         override def expectedCPU: Double = outer.expectedCPU
         /** Has to be unique within the computation graph. */
         override def name: String = outer.name
+
+        override def hashCode(): Int = (name,closedDependencies,computation).hashCode()
+        override def equals(obj: scala.Any): Boolean = obj match {
+          case ce: ClosedEdge[T] => (ce.name,ce.closedDependencies,ce.computation) == (name, closedDependencies, computation)
+          case _ => false
+        }
+        override def singleResult: Boolean = outer.singleResult
       }
     )
   }

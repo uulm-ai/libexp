@@ -9,13 +9,13 @@ import shapeless.ops.traversable.FromTraversable
 /** An edge is the basic building block of a computation graph. It represents a typed, multi-ary function with a
   * stream-valued return type.
   */
-case class Computation[+T] protected[Computation](name: String,
-                                                  dependencies: IndexedSeq[Node[Any]],
-                                                  f: IndexedSeq[Any] => T,
-                                                  expectedLength: Double,
-                                                  expectedCPU: Double) extends Edge[T] {
-
+case class Computation[+T] protected[exp](name: String,
+                                          dependencies: IndexedSeq[Node[Any]],
+                                          f: IndexedSeq[Any] => T,
+                                          expectedLength: Double,
+                                          expectedCPU: Double) extends Edge[T] {
   override def computation: IndexedSeq[Any] => Stream[T] = f.andThen(Stream(_))
+  val singleResult: Boolean = true
 }
 
 /**
@@ -64,8 +64,9 @@ object Computation {
 
 case class LiftND[F](from: Node[Stream[F]], expectedLength: Double) extends Edge[F] {
   /** Has to be unique within the computation graph. */
-  override def name: String = s"unwrap.${from.name}"
-  override def expectedCPU: Double = from.expectedCPU
-  def dependencies: IndexedSeq[Node[Any]] = IndexedSeq(from)
+  val name: String = s"unwrap.${from.name}"
+  val expectedCPU: Double = from.expectedCPU
+  val dependencies: IndexedSeq[Node[Any]] = IndexedSeq(from)
   override def computation: IndexedSeq[Any] => Stream[F] = _.head.asInstanceOf[Stream[F]]
+  val singleResult: Boolean = false
 }

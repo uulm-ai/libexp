@@ -1,5 +1,6 @@
+import scala.language.implicitConversions
+
 import scalaz.{NonEmptyList, ValidationNel}
-import scalaz.syntax.validation._
 
 /**
   * Created by thomas on 18.11.15.
@@ -10,4 +11,6 @@ package object exp {
   implicit class RichT[T](val t: Val[T]) {
     def ensureNel(err: String, test: T => Boolean): Val[T] = t.ensure(NonEmptyList(err))(test)
   }
+
+  implicit def nodeToContext[T](n: Node[T]): Context[T] = Context(n)
 }

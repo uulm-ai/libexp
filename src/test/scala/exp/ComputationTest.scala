@@ -1,6 +1,5 @@
 package exp
 
-import fastparse.all._
 import org.specs2.mutable.Specification
 
 class ComputationTest extends Specification with ValMatchers {
