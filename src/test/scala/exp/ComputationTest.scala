@@ -20,21 +20,4 @@ class ComputationTest extends Specification with ValMatchers {
     val c = Computation("paste")((i1,i2))((i1: Int, i2: Int) => i1 + i2)
     evalClosed(c) must beSuccessfulWith(haveLength(6))
   }
-
-  "bug from test app" >> {
-    val stringIn: Node[String] = FromString[String]("string", P(CharIn("abc").rep).!.map(s => Fixed("string", IndexedSeq(s))))
-    val stringIn2: Node[Char] = FromString[String]("string2", P(CharIn("abcdefg").rep).!.map(s => Fixed("string2", IndexedSeq(s))))
-      .map("stream2", (_:String).toStream, 0d).lift(10)
-    val map = Computation("map", 1d)(stringIn){(string: String) => string.toStream}
-    val lifted: Node[Char] = LiftND(map, 2)
-    val mapChars = Computation("mapChars", 1d)(stringIn2){(c2: Char) => s"char x $c2"}
-
-    val args = Array("--string","aa","--string2","cd")
-    val r = for{
-      withCli <- Driver.parseCli(OpenQuery(mapChars), args)
-      result <- Driver.evalGraph(withCli, 0L)
-    } yield result
-
-    r must beSuccessfulWith(haveLength(4))
-  }
 }

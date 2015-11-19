@@ -1,11 +1,13 @@
 package exp
 
+import scala.language.higherKinds
+
+import com.typesafe.scalalogging.StrictLogging
 import fastparse.all._
 
-import scala.language.higherKinds
 import scalaz._
-import std.list._
-import syntax.traverse._
+import scalaz.std.list._
+import scalaz.syntax.traverse._
 
 /** A node within the computation graph has a type `T` and a name. */
 sealed trait Node[+T] { outer =>
@@ -63,18 +65,40 @@ case class Fixed[+T](name: String, values: IndexedSeq[T]) extends ClosedEdge[T] 
   override def expectedCPU: Double = 0.00001d
 }
 
+object Fixed {
+  def single[T](name: String, v: T): Fixed[T] = Fixed(name, IndexedSeq(v))
+}
+
 /** An input node without dependencies.
   * This node cannot be evaluated, it gets substituted with a different node at preprocessing time. */
-case class FromString[+T](name: String,
-                          valueParser: P[Closed[T]],
-                          default: Option[Closed[T]] = None,
-                          description: String = "",
-                          shortCommand: Option[Char] = None
-                         ) extends Node[T] {
-  def cliOpt: CliOpt[Closed[T]] = CliOpt(name, shortCommand, valueParser, default, description)
-  def argNameParser = P(("--" ~ name) | ("-" ~ shortCommand.map(c => CharIn(Seq(c))).getOrElse(P(Fail))))
+case class FromCLI[+T](name: String,
+                       valueParser: String => Val[Closed[T]],
+                       default: Option[Closed[T]] = None,
+                       description: String = "",
+                       shortCommand: Option[Char] = None
+                      ) extends Node[T] {
+  def cliOpt: CliOpt[Closed[T]] = CliOpt[Closed[T]](name,valueParser,description,shortCommand,default)
   override def expectedLength: Double = Double.NaN
   override def expectedCPU: Double = Double.NaN
+}
+
+object FromCLI extends StrictLogging {
+  def ndParser[T](p: P[T]): P[Seq[T]] = (p.map(Seq(_)) | P("{" ~ p.rep(sep=P(",")) ~ "}")) ~ End
+
+  def singleValue[T](name: String, p: String => Val[T], default: Option[T], desc: String, short: Option[Char] = None): FromCLI[T] =
+    FromCLI(name, p andThen (_.map(Fixed.single(name, _))), default.map(Fixed.single(name,_)), desc, short)
+
+  def multipleFromParser[T](name: String,
+                            p: P[T],
+                            default: Option[Seq[T]] = None,
+                            desc: String = "",
+                            short: Option[Char] = None): FromCLI[T] =
+    FromCLI(
+      name,
+      CliOpt.parserToReader(ndParser(p).map(s =>  Fixed(name,s.toIndexedSeq))),
+      default.map(s => Fixed(name,s.toIndexedSeq)),
+      desc,
+      short)
 }
 
 /** A node with dependencies, i.e., a computed node.

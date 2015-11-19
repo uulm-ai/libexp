@@ -3,9 +3,9 @@ package exp
 import scala.annotation.tailrec
 import com.typesafe.scalalogging.StrictLogging
 
-import scalaz._
-import Scalaz._
-import Validation._
+import scalaz.std.list._
+import scalaz.syntax.validation._
+import scalaz.syntax.traverse._
 
 class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
   lazy val allNodes: Seq[Node[_]] = Driver.nodeClosure(queryNodes){
@@ -13,8 +13,8 @@ class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
     case _ => Set()
   }.toSeq
 
-  lazy val openNodes: Seq[FromString[Any]] = allNodes.collect{
-    case fs: FromString[_] => fs
+  lazy val openNodes: Seq[FromCLI[Any]] = allNodes.collect{
+    case fs: FromCLI[_] => fs
   }
 
   def close(substitution: Map[String,Closed[_]]): Val[ClosedQuery] = {
@@ -23,7 +23,7 @@ class OpenQuery protected[OpenQuery](val queryNodes: Seq[Node[_]]){
       case None =>
         n match {
           case cl: Closed[_] => cl.successNel
-          case fs: FromString[_] =>
+          case fs: FromCLI[_] =>
             substitution
               .get(fs.name)
               .orElse(fs.default)
@@ -70,16 +70,15 @@ object Driver extends StrictLogging {
       .dropWhile(two => two(0).size != two(1).size)
       .next().head
 
-  def parseCli(query: OpenQuery, args: Array[String]): Val[ClosedQuery] = for {
-    cliMapping <- CliOpt.parse(args, query.openNodes.toSeq.map(_.cliOpt))
-    parsedMap: Map[String, Seq[Closed[Any]]] = cliMapping.groupBy(_.name)
-    _ = logger.info(s"parsed from arguments: [${parsedMap.mkString("; ")}]")
-    injection <- parsedMap.map{
-      case (key, Seq(v))=> (key -> v).successNel
-      case (key, vals)  => s"parameter $key may only be given once".failureNel
-    }.toList.sequenceU
-    closed <- query.close(injection.toMap)
-  } yield closed
+  def parseCli(query: OpenQuery, args: Array[String]): Val[ClosedQuery] = {
+    val openNodes = query.openNodes.toSeq
+    for {
+      cliMapping <- CliOpt.parse[Closed[Any]](args, openNodes.map(_.cliOpt))
+      parsedMap = openNodes.map(_.name).zip(cliMapping).toMap
+      _ = logger.info(s"parsed from arguments: [${parsedMap.mkString("; ")}]")
+      closed <- query.close(parsedMap)
+    } yield closed
+  }
 
   def evalGraph(query: ClosedQuery, seed: Long): Val[Stream[Valuation]] = {
     val allNodes = query.allNodes
