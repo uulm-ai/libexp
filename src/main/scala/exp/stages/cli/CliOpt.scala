@@ -1,13 +1,14 @@
-package exp
+package exp.stages.cli
 
 import com.typesafe.scalalogging.StrictLogging
+import exp._
 import fastparse.all._
 import fastparse.core.Result
 
-import scalaz.syntax.validation._
-import scalaz.syntax.std.option._
 import scalaz.std.list._
+import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
+import scalaz.syntax.validation._
 
 /** Specifies how to obtain a value of type `T` from command-line arguments.
   *

@@ -1,5 +1,6 @@
 package exp
 
+import exp.stages.cli.CliOpt
 import org.specs2.mutable.Specification
 import fastparse.all._
 

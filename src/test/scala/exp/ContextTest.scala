@@ -16,11 +16,11 @@ class ContextTest extends Specification {
   }
 
 //  "context works with compuation" >> {
-//    val f1 = Fixed("n1", 1 to 3).addAsVariable
-//    val f2 = Fixed("n2", 7 to 9).addAsVariable
+//    val f1 = Fixed("n1", 1 to 3).reportVariable
+//    val f2 = Fixed("n2", 7 to 9).reportVariable
 //
 //    val computed = Computation("prod",0.001d)((f1,f2))((_: Int) * (_: Int))
-//      .addAsVariable
+//      .reportVariable
 //
 //    computed must haveColumns("n1","n2","product")
 //  }

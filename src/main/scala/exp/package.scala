@@ -12,7 +12,7 @@ package object exp {
     def ensureNel(err: String, test: T => Boolean): Val[T] = t.ensure(NonEmptyList(err))(test)
   }
 
-  implicit def nodeToContext[T](n: Node[T]): Context[T] = Context(n)
+//  implicit def nodeToContext[T](n: Node[T]): Context[T] = Context(n)
 
   def graphClosure[A](query: Iterable[A])(pred: A => Iterable[A]): Set[A] =
     Iterator.iterate(query.toSet)(found => found.flatMap(pred) ++ found)
