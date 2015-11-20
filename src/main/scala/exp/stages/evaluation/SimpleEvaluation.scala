@@ -8,7 +8,7 @@ import exp._
 object SimpleEvaluation extends Evaluation{
   type Out = Stream[Valuation]
 
-  override def runStage(input: Unit): Val[ComputationGraph[N] => Stream[Valuation]] = ???
+//  override def runStage(input: Unit): Val[Context.WithAny[N] => Stream[Valuation]] = ???
   //trait ComputationDriver[T[_]] {
   //  def evalGraph(query: ClosedQuery, seed: Long): Val[T[Valuation]]
   //}

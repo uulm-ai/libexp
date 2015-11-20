@@ -3,14 +3,17 @@ package exp.stages.cli
 import exp._
 import exp.stages.{Stage, RNGInsertion}
 
+trait CLIParsing extends Stage {
+  type N[+A] <: Node[A] {type S <: CLIParsing}
+}
 /**
   * Created by thomas on 20.11.15.
   */
-object CLIParsing extends Stage{
-  type I = Array[String]
-  type N[+A] = Node[A] {type S <: CLIParsing.type}
-  type Out = ComputationGraph[RNGInsertion.N]
-  def runStage(cliArgs: Array[String]): Val[(ComputationGraph[N]) => Out] = ???
+object CLIParsing extends CLIParsing {
+//  type I = Array[String]
+//  type Out = Context.WithAny[RNGInsertion.N]
+//
+//  def runStage(cliArgs: Array[String]): Val[(Context.WithAny[N]) => Out] = ???
 
   /** An input node without dependencies.
     * This node cannot be evaluated, it gets substituted with a different node at pre-processing time. */

@@ -1,30 +1,28 @@
 package exp
 
+import exp.stages.evaluation.{Evaluation, Computed}
 import org.specs2.matcher.Matcher
 import org.specs2.mutable.Specification
 import scalaz.syntax.apply._
 
 class ContextTest extends Specification {
 
-  "collecting columns must work" >> {
-    val f1 = Fixed[Int]("n1", 1 to 3).reportVariable
-    val f2 = Fixed[Int]("n2", 1 to 3).reportVariable
-
-    val result = ^(f1,f2)(_ * _).addColumn("product", _.toString)
-
-    result must haveColumns("n1","n2","product")
+  "cnversion of fixed to context" >> {
+    val n: Computed[Evaluation, Int] = fromSeq(1 to 5)
+    n.withName("foo") must haveAnnotationFor(n, Name("foo"))
   }
 
-//  "context works with compuation" >> {
-//    val f1 = Fixed("n1", 1 to 3).reportVariable
-//    val f2 = Fixed("n2", 7 to 9).reportVariable
+//  "apply must keep reports for both inputs" >> {
+//    val f1: Context[Int,Evaluation#N] = fromSeq(1 to 2).withName("f1")
+//    val f2: Context[Int,Evaluation#N] = fromSeq(1 to 2).withName("f2")
 //
-//    val computed = Computation("prod",0.001d)((f1,f2))((_: Int) * (_: Int))
-//      .reportVariable
+//    val r: Context[Int,Evaluation#N] = ^(f1,f2)(_ + _)(Context.applyInstance).withName("r")
 //
-//    computed must haveColumns("n1","n2","product")
+//    (r must haveAnnotationFor(f1, Name("f1"))) and
+//      (r must haveAnnotationFor(f1, Name("f2"))) and
+//      (r must haveAnnotationFor(r, Name("r")))
 //  }
 
-  def haveColumns(cols: String*): Matcher[Context[_]] =
-    containTheSameElementsAs(cols.toSeq) ^^ ((_:Context[_]).columns.map(_._2))
+  def haveAnnotationFor[N[+_],T](n: N[T], a: Annotation): Matcher[Context[T,N]] =
+    beSome(contain(a)) ^^ ((_:Context[T,N]).annotations.get(n))
 }
