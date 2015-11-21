@@ -1,4 +1,4 @@
-package exp.stages.cli
+package exp.cli
 
 import com.typesafe.scalalogging.StrictLogging
 import exp._
