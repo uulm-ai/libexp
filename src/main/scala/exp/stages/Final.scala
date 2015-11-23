@@ -24,5 +24,5 @@ object Final extends Stage {
   //the following method should never be called, maybe create a particular subtype of stage for final stages
   override implicit def innerLift: LiftStream[Id.Id] = ???
   override implicit def innerApply: Apply[Id.Id] = ???
-  override def processInject(r: Unit): Val[~>[Final.Inject, Id.Id]] = ???
+  override def processInject(r: Unit, n: N[_]): Val[~>[Final.Inject, Id.Id]] = ???
 }

@@ -23,7 +23,7 @@ case class RngInsertion[In[+_]](inApply: Apply[In], inFS: FromSeq[In], inLift: L
     override def getSeed(name: String): N[Long] = RNGSeed(name)
   }
 
-  override def processInject(r: Seq[Long]): Val[~>[Inject, In]] = new ~>[Inject, In] {
+  override def processInject(r: Seq[Long], n: N[_]): Val[~>[Inject, In]] = new ~>[Inject, In] {
     override def apply[A](fa: Inject[A]): In[A] = fa match {
       case RNGSeed(name) => innerFromSeq.fromSeq(r)
     }

@@ -21,7 +21,7 @@ case class CliEval[In[+_]](inLift: LiftStream[In], inApply: Apply[In]) extends S
 
   override implicit def innerApply: Apply[In] = inApply
 
-  override def processInject(r: Array[String]): Val[~>[Inject, In]] = new ~>[Inject, In]{
+  override def processInject(r: Array[String], n: N[_]): Val[~>[Inject, In]] = new ~>[Inject, In]{
     override def apply[A](fa: Inject[A]): In[A] = {
       //takes a bit more work, we need to collect all nodes and process them at once
       ???

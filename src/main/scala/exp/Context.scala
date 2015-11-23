@@ -24,20 +24,21 @@ case class Context[+T,N[+_]](value: N[T], annotations: Map[N[_],List[Annotation]
   def annotate(a: Annotation): Context[T,N] = this.copy(annotations = annotations |+| Map(value -> List(a)))
 }
 
-trait ContextOps {
-  implicit def addContext[T,N[+_]](nt: N[T]): Context[T,N] = Context(nt)
-}
-
 object Context {
   type WithAny[tN[+_]] = Context[_,tN]
 
-  trait Foo[N[+_]] {
+  trait Applied[N[+_]] {
     type L[+T] = Context[T,N]
   }
 
-  implicit def applyInstance[N[+_]](implicit applyA: Apply[N]): Apply[Foo[N]#L] = new Apply[Foo[N]#L]{
+  implicit def applyInstance[N[+_]](implicit applyA: Apply[N]): Apply[Applied[N]#L] = new Apply[Applied[N]#L]{
     override def ap[A, B](fa: => Context[A,N])(f: => Context[A => B,N]): Context[B,N] =
       Context[B,N](fa.value <*> f.value, fa.annotations |+| f.annotations)
     override def map[A, B](fa: Context[A,N])(f: (A) => B): Context[B,N] = fa.copy(value = fa.value.map(f))
   }
+
+  implicit def wrap[N[+_]]: N ~> Applied[N]#L = new ~>[N,Applied[N]#L]{
+    override def apply[A](fa: N[A]): Context[A,N] = Context(fa)
+  }
+
 }

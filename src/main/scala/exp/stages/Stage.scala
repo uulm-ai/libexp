@@ -9,8 +9,6 @@ import syntax.apply._
 /** A Stage is a pre-processing step, which requires a value of type `Read` to process.
   * It wraps a type constructor `Inner` which must be an Apply. The resulting type `Stage#N[_]` is again
   * an Apply.
-  *
-  * @tparam Read
   */
 trait Stage {
   type Read
@@ -32,7 +30,7 @@ trait Stage {
 
   implicit def innerLift: LiftStream[Inner]
 
-  def processInject(r: Read): Val[Inject ~> Inner]
+  def processInject(r: Read, n: N[_]): Val[Inject ~> Inner]
 
   implicit def applyInstance: Apply[N] = new Apply[N]{
     override def ap[A, B](fa: => N[A])(f: => N[(A) => B]): N[B] = (fa,f) match {
@@ -57,7 +55,7 @@ trait Stage {
     override def apply[A](fa: Wrap[A]): Inner[A] = fa.value
   }
 
-  def process(r: Read): Val[N ~> Inner] = processInject(r).map{ injectHandler =>
+  def process[T](r: Read, n: N[_]): Val[N ~> Inner] = processInject(r,n).map{ injectHandler =>
     new ~>[N,Inner]{ poly =>
       override def apply[A](fa: N[A]): Inner[A] = fa match {
         case Wrap(x) => x
@@ -94,24 +92,4 @@ object GetSeed{
 }
 trait CLINode[N[+_],G[+_]]{
   def cliNode[T](co: CliOpt[G[T]]): N[T]
-}
-
-object StdStack{
-  val rngStack: RngInsertion[Final.N] = RngInsertion[Final.N](Final.applyInstance, Final.fromSeqIns, Final.liftStreamInst)
-  type AfterCli[+T] = rngStack.N[T]
-  val cliStack: CliEval[rngStack.N] = CliEval[rngStack.N](rngStack.liftStreamInst,rngStack.applyInstance)
-  type N[+T] = cliStack.N[T]
-
-  implicit def applyInst: Apply[N] = cliStack.applyInstance
-  //this is hacky and can fail at runtime, since we cannot look "past" the outer Wrap instance.
-  implicit def liftStreamInst: LiftStream[cliStack.Wrap] = new LiftStream[cliStack.Wrap] {
-    override def liftStream[T](nst: cliStack.Wrap[Stream[T]]): cliStack.Wrap[T] = nst.value match {
-      case rngStack.Wrap(fin: Final.N[Stream[T]]) => cliStack.Wrap(rngStack.Wrap(Final.liftStreamInstance.liftStream(fin)))
-      case _ => sys.error("lifting ")
-    }
-  }
-  implicit def fromSeqInst: FromSeq[N] = ???
-  implicit def getSeedInst: GetSeed[N] = ???
-  implicit def cliNodeInst: CLINode[N,AfterCli] = ???
-
 }
