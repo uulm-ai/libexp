@@ -13,10 +13,6 @@ object Final extends Stage {
   type Inner[+T] = T
   case class FromSq[T](in: Seq[T]) extends Inject[T]
 
-  implicit def liftStreamInstance: LiftStream[N] = new LiftStream[N]{
-    override def liftStream[T](nst: N[Stream[T]]): N[T] = LiftStr(nst)
-  }
-
   implicit def fromSeqIns: FromSeq[N] = new FromSeq[N]{
     override def fromSeq[T](xs: Seq[T]): Final.N[T] = FromSq(xs)
   }
@@ -25,4 +21,8 @@ object Final extends Stage {
   override implicit def innerLift: LiftStream[Id.Id] = ???
   override implicit def innerApply: Apply[Id.Id] = ???
   override def processInject(r: Unit, n: N[_]): Val[~>[Final.Inject, Id.Id]] = ???
+
+  object ProvidedInstances {
+    implicit val fromSeqInt: FromSeq[N] = ???
+  }
 }

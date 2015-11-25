@@ -8,18 +8,14 @@ import scalaz.{~>, Apply}
 /**
   * Created by thomas on 23.11.15.
   */
-case class CliEval[In[+_]](inLift: LiftStream[In], inApply: Apply[In]) extends Stage {
+case class CliEval[In[+_]]()(implicit val innerLift: LiftStream[In], val innerApply: Apply[In]) extends Stage {
   import scalaz.syntax.validation._
 
   type Read = Array[String]
 
   override type Inner[+T] = In[T]
 
-  override implicit def innerLift: LiftStream[Inner] = inLift
-
   case class CliNode[+T](parser: CliOpt[In[T]]) extends Inject[T]
-
-  override implicit def innerApply: Apply[In] = inApply
 
   override def processInject(r: Array[String], n: N[_]): Val[~>[Inject, In]] = new ~>[Inject, In]{
     override def apply[A](fa: Inject[A]): In[A] = {
@@ -27,4 +23,10 @@ case class CliEval[In[+_]](inLift: LiftStream[In], inApply: Apply[In]) extends S
       ???
     }
   }.successNel
+
+  object ProvidedInstances {
+    implicit object cliNodeInst extends CLINode[N,In] {
+      override def cliNode[T](co: CliOpt[In[T]]): N[T] = CliNode(co)
+    }
+  }
 }

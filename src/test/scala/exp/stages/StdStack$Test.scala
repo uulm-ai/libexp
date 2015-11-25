@@ -14,8 +14,8 @@ class StdStack$Test extends Specification {
     import scalaz.syntax.apply._
 
     val prod = ^(
-      fromSeq(1 to 5).withName("x1"),
-      fromSeq(1 to 5).withName("x2")
+      fromSeq(1 to 5).withName("x1"): StdStack.N[Int],
+      fromSeq(1 to 5).withName("x2"): StdStack.N[Int]
     )(_ * _)
     val gaussian = getSeed("test").map(new Random(_).nextGaussian())
     val prodPlusRand = ^(gaussian,prod)(_ + _).withName("result")

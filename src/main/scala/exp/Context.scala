@@ -1,5 +1,7 @@
 package exp
 
+import exp.stages.LiftStream
+
 import scala.language.higherKinds
 import scala.reflect.ClassTag
 import scalaz.{~>, Apply}
@@ -27,18 +29,30 @@ case class Context[+T,N[+_]](value: N[T], annotations: Map[N[_],List[Annotation]
 object Context {
   type WithAny[tN[+_]] = Context[_,tN]
 
+  /** Use `Context.Applied[N]#L` this if you want to partially apply the type-constructur N[+_] in the Context type. */
   trait Applied[N[+_]] {
     type L[+T] = Context[T,N]
   }
 
-  implicit def applyInstance[N[+_]](implicit applyA: Apply[N]): Apply[Applied[N]#L] = new Apply[Applied[N]#L]{
-    override def ap[A, B](fa: => Context[A,N])(f: => Context[A => B,N]): Context[B,N] =
-      Context[B,N](fa.value <*> f.value, fa.annotations |+| f.annotations)
-    override def map[A, B](fa: Context[A,N])(f: (A) => B): Context[B,N] = fa.copy(value = fa.value.map(f))
-  }
+  implicit def applyInstance[N[+_]](implicit applyA: Apply[N])
+  : Apply[Applied[N]#L] =
+    new Apply[Applied[N]#L]{
+      override def ap[A, B](fa: => Context[A,N])(f: => Context[A => B,N]): Context[B,N] =
+        Context[B,N](fa.value <*> f.value, fa.annotations |+| f.annotations)
+      override def map[A, B](fa: Context[A,N])(f: (A) => B): Context[B,N] = fa.copy(value = fa.value.map(f))
+    }
 
-  implicit def wrap[N[+_]]: N ~> Applied[N]#L = new ~>[N,Applied[N]#L]{
-    override def apply[A](fa: N[A]): Context[A,N] = Context(fa)
-  }
+  implicit def liftStreamInstance[N[+_]](implicit liftStreamN: LiftStream[N])
+  : LiftStream[Applied[N]#L] =
+    new LiftStream[Applied[N]#L]{
+      override def liftStream[T](nst: Context[Stream[T],N]): Context[T,N] =
+        nst.copy(value = liftStreamN.liftStream(nst.value))
+    }
+
+  implicit def wrapInstance[N[+_]]
+  : N ~> Applied[N]#L =
+    new ~>[N,Applied[N]#L]{
+      override def apply[A](fa: N[A]): Context[A,N] = Context(fa)
+    }
 
 }
