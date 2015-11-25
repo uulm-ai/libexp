@@ -17,7 +17,7 @@ case class RngInsertion[In[+_]]()(implicit val innerApply: Apply[In], val innerF
 
   override def processInject(r: Seq[Long], n: N[_]): Val[~>[Inject, In]] = new ~>[Inject, In] {
     override def apply[A](fa: Inject[A]): In[A] = fa match {
-      case RNGSeed(name) => innerFromSeq.fromSeq(r)
+      case RNGSeed(name) => innerFromSeq.fromSeq(r, s"seed.$name")
     }
   }.successNel
 

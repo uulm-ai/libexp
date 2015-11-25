@@ -1,6 +1,7 @@
 package exp.stages
 
-import exp.Val
+import exp.Context.Applied
+import exp.{Context, Val}
 import exp.cli.CliOpt
 
 import scalaz.{~>, Apply}
@@ -15,7 +16,7 @@ case class CliEval[In[+_]]()(implicit val innerLift: LiftStream[In], val innerAp
 
   override type Inner[+T] = In[T]
 
-  case class CliNode[+T](parser: CliOpt[In[T]]) extends Inject[T]
+  case class CliNode[+T](parser: CliOpt[Context.Applied[In]#L[T]]) extends Inject[T]
 
   override def processInject(r: Array[String], n: N[_]): Val[~>[Inject, In]] = new ~>[Inject, In]{
     override def apply[A](fa: Inject[A]): In[A] = {
@@ -25,8 +26,8 @@ case class CliEval[In[+_]]()(implicit val innerLift: LiftStream[In], val innerAp
   }.successNel
 
   object ProvidedInstances {
-    implicit object cliNodeInst extends CLINode[N,In] {
-      override def cliNode[T](co: CliOpt[In[T]]): N[T] = CliNode(co)
+    implicit object cliNodeInst extends CLINode[N,Context.Applied[In]#L] {
+      override def cliNode[T](co: CliOpt[Applied[In]#L[T]]): N[T] = CliNode(co)
     }
   }
 }

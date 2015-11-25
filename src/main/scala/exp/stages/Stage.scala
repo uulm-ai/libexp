@@ -75,13 +75,13 @@ trait LiftStream[N[+_]]{
 }
 
 trait FromSeq[+N[+_]]{outer =>
-  def fromSeq[T](xs: Seq[T]): N[T]
+  def fromSeq[T](xs: Seq[T], name: String): N[T]
 }
 
 object FromSeq{
   //possibly it's important that `trans` precedes `fsn`
   def liftInstance[N[+_],G[+_]](implicit trans: N ~> G, fsn: FromSeq[N]): FromSeq[G] = new FromSeq[G]{
-    override def fromSeq[T](xs: Seq[T]): G[T] = trans(fsn.fromSeq(xs))
+    override def fromSeq[T](xs: Seq[T], name: String): G[T] = trans(fsn.fromSeq(xs, name))
   }
 }
 

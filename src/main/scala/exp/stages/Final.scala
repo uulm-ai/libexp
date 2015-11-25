@@ -11,10 +11,10 @@ object Final extends Stage {
   override type Read = Unit
 
   type Inner[+T] = T
-  case class FromSq[T](in: Seq[T]) extends Inject[T]
+  case class FromSq[T](in: Seq[T], name: String) extends Inject[T]
 
-  implicit def fromSeqIns: FromSeq[N] = new FromSeq[N]{
-    override def fromSeq[T](xs: Seq[T]): Final.N[T] = FromSq(xs)
+  def fromSeqIns: FromSeq[N] = new FromSeq[N]{
+    override def fromSeq[T](xs: Seq[T], name: String): Final.N[T] = FromSq(xs, name)
   }
 
   //the following method should never be called, maybe create a particular subtype of stage for final stages
@@ -23,6 +23,6 @@ object Final extends Stage {
   override def processInject(r: Unit, n: N[_]): Val[~>[Final.Inject, Id.Id]] = ???
 
   object ProvidedInstances {
-    implicit val fromSeqInt: FromSeq[N] = ???
+    implicit val fromSeqInt: FromSeq[N] = fromSeqIns
   }
 }
