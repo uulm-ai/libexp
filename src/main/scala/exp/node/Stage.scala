@@ -9,7 +9,7 @@ trait Stage {
 /** Type-class that indicates that stage `D` is layered below stage `H`, which means that
   * `H` is processed first, and `D` comes later. */
 case class StageAfter[D <: Stage, H <: Stage](high: H){
-  def wrap[T](n: Node[D,T]): Node[H,T] = Wrap(high,n)
+  def wrap[T](n: Node[D,T]): Node[H,T] = Wrap(high,n)(this)
 }
 
 trait StageCast[F <: Stage, T <: Stage] {

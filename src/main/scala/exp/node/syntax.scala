@@ -18,11 +18,12 @@ object syntax {
   def seed(n: String): RngNode[Long] = RngInsertion.seed(n)
   def fromCli[T](cli: CliOpt[RngNode[T]]): CliNode[T] = CliProc.cliOpt(cli)
 
-  def ^[S1 <: Stage, S2 <: Stage, T1, T2, R](n1: Node[S1,T1], n2: Node[S2,T2], effort: Effort = Effort.low)(f: (T1,T2) => R)(implicit lub: StageLUB[S1,S2]): Node[lub.Out,R] =
-    App.map2(n1,n2,effort)(f)(lub)
+  def ^[S1 <: Stage, S2 <: Stage, T1, T2, R](n1: Node[S1,T1], n2: Node[S2,T2], effort: Effort = Effort.low,name: String = "")(f: (T1,T2) => R)(implicit lub: StageLUB[S1,S2]): Node[lub.Out,R] =
+    App.map2(n1,n2,effort,Some(name).filterNot(_ == ""))(f)(lub)
+
   implicit class RichNode[St <: Stage, T](n: Node[St,T]) {
     //mapping and lifting
-    def map[S](f: T => S, effort: Effort = Effort.low): Node[St,S] = App.map(n,effort)(f)
+    def map[S](f: T => S, effort: Effort = Effort.low, name: String = ""): Node[St,S] = App.map(n,effort, Some(name).filterNot(_ == ""))(f)
     def lift[S](estimatedLength: Double = 10, name: String = "")(implicit ev: T <:< Stream[S]): Node[St,S] =
       Lift(n.stage,n.asInstanceOf[Node[St,Stream[S]]], Effort.none, expectedLength = Length(estimatedLength), name = Some(name).filterNot(_ == ""))
     //annotation and reporting
