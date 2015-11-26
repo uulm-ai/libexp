@@ -23,7 +23,8 @@ object syntax {
   implicit class RichNode[St <: Stage, T](n: Node[St,T]) {
     //mapping and lifting
     def map[S](f: T => S, effort: Effort = Effort.low): Node[St,S] = App.map(n,effort)(f)
-    def lift[S](implicit ev: T <:< Stream[S]): Node[St,S] = Lift(n.stage,n.asInstanceOf[Node[St,Stream[S]]])
+    def lift[S](estimatedLength: Double = 10, name: String = "")(implicit ev: T <:< Stream[S]): Node[St,S] =
+      Lift(n.stage,n.asInstanceOf[Node[St,Stream[S]]], Effort.none, expectedLength = Length(estimatedLength), name = Some(name).filterNot(_ == ""))
     //annotation and reporting
     def addColumn(name: String, f: T => String): Report[St, T, T] = Report(n.stage,n, name, f)
   }

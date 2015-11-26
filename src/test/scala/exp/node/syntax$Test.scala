@@ -37,7 +37,7 @@ class syntax$Test extends Specification {
 
   "lifting" >> {
     val f: BaseNode[Int] = fromSeq(1 to 5, "length")
-      .map(n => Stream.from(1).take(n)).lift
+      .map(n => Stream.from(1).take(n)).lift(1)
 
     success
   }
