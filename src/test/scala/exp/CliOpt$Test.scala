@@ -1,11 +1,10 @@
 package exp
 
-import exp.cli.CliOpt
+import exp.cli._
 import org.specs2.mutable.Specification
 import fastparse.all._
 
 class CliOpt$Test extends Specification with ValMatchers {
-  import CliOpt._
 
   val someReader: Reader[String] = parserToReader(P("abc").!)
 

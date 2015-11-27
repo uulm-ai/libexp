@@ -5,6 +5,7 @@ import exp._
 import fastparse.all._
 import fastparse.core.Result
 
+import scalaz._
 import scalaz.std.list._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -19,25 +20,27 @@ import scalaz.syntax.validation._
   * @param description Description of the purpose of this option.
   */
 case class CliOpt[+T](long: String,
-                      valueParser: CliOpt.Reader[T],
+                      valueParser: Reader[T],
                       description: String = "no description given",
                       short: Option[Char] = None,
                       default: Option[T] = None,
                       formatDescription: String = "format unknown"){
   def argIdentifiers: Seq[String] = Seq(s"--$long") ++ short.map(s => s"-$s")
+  def helpText: String =
+    s"""--$long${short.map(c => s" | -$c").getOrElse("")}
+       |    $description
+       |    format: $formatDescription
+       |    ${default.map(d => s"default: $d").getOrElse("required argument")}"""".stripMargin
+}
+
+case class CliOptList[+R](opts: Seq[CliOpt[R]]) {
+  def apply(args: Array[String]): Val[Seq[R]] = CliOpt.parse(args,opts)
+  def helpText: String = opts.map(_.helpText).mkString("\n")
 }
 
 object CliOpt extends StrictLogging {
-  type Reader[+T] = String => Val[T]
 
-  def parserToReader[T](p: P[T]): Reader[T] = (s: String) => P(p ~ End).parse(s) match {
-    case f@Result.Failure(x,y) =>
-      logger.debug("failed parse: " + f, f)
-      s"failed to parse input: $f".failureNel
-    case s@Result.Success(value,_) =>
-      logger.debug(s"successful parse: " + s, s)
-      value.successNel
-  }
+
 
   def validateDistinct[T](ts: Seq[T]): Val[Seq[T]] = ts.successNel[String]
       .ensureNel("found duplicate argument during construction of CLI", xs => xs.distinct.size == xs.size)

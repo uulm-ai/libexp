@@ -4,6 +4,7 @@ package exp.node
 sealed trait Node[+S <: Stage, +T]{
   def stage: S
   def dependencies: Set[Node[Stage,_]]
+  def allNodes: Set[Node[Stage, _]] = Node.extractNodes(this)
 }
 
 trait Effort{
@@ -38,7 +39,7 @@ case class Lift[+S <: Stage,+T](stage: S, p: Node[S,Stream[T]], perItemEffort: E
 case class Report[+S <: Stage,+T, TT <: T](stage: S, n: Node[S,T], colName: String, f: TT => String) extends Node[S,T] {
   override def dependencies: Set[Node[Stage, _]] = Set(n)
 }
-case class Inject[+S <: Stage,+T] protected[node] (stage: S, p: S#Payload[T], name: Option[String] = None) extends Node[S,T] {
+case class Inject[+S <: Stage,T] protected[node] (stage: S, p: S#Payload[T], name: Option[String] = None) extends Node[S,T] {
   override def dependencies: Set[Node[Stage, _]] = Set()
 }
 

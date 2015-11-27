@@ -1,9 +1,7 @@
 package exp.node
 
-
-
 trait Stage {
-  type Payload[+T]
+  type Payload[T]
 }
 
 /** Type-class that indicates that stage `D` is layered below stage `H`, which means that
