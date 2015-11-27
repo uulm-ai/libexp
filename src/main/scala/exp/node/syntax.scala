@@ -28,6 +28,6 @@ object syntax {
     def lift[S](estimatedLength: Double = 10, name: String = "")(implicit ev: T <:< Stream[S]): Node[St,S] =
       Lift(n.stage,n.asInstanceOf[Node[St,Stream[S]]], Effort.none, expectedLength = Length(estimatedLength), name = Some(name).filterNot(_ == ""))
     //annotation and reporting
-    def addColumn(name: String, f: T => String): Report[St, T, T] = Report(n.stage,n, name, f)
+    def addColumn(name: String, f: T => String = _.toString): Report[St, T, T] = Report(n.stage,n, name, f)
   }
 }

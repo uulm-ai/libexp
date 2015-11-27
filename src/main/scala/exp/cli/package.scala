@@ -9,6 +9,7 @@ import fastparse.all._
 import fastparse.core.Result
 
 
+import scala.util.Random
 import scalaz.{Node => _, _}
 import std.list._
 import scalaz.syntax.validation._
@@ -75,12 +76,18 @@ package object cli extends StrictLogging {
       val result = runCliFree(args,cliWithSeed).map{ case (node, seeds) =>
         val baseNode = RngInsertion.insertSeeds(seeds,node)
         val cg = Base.toCGraph(baseNode)
-        SimpleEvaluator.evalStream(cg)
+        (cg,SimpleEvaluator.evalStream(cg))
       }
 
       result.fold(
         es => println("encountered error during parse:\n\t- " + es),
-        good => good.foreach(println)
+        {
+          case (cg,vals) =>
+            println(cg.reports.map(_.name).mkString("\t"))
+            vals.foreach(v =>
+              println(cg.reports.map(c => c.f(v(c.node))).mkString("\t"))
+            )
+        }
       )
     }
   }
@@ -113,7 +120,11 @@ object Test {
       "test input",
       default = Some(fromSeq(1 to 10, "test.node"))
     )
-    val n = fromCli(intOpt)
+
+    val gaussian = seed("gaussian").map(new Random(_).nextGaussian())
+      .addColumn("r")
+
+    val n = ^(fromCli(intOpt),gaussian)(_ + _).addColumn("result")
 
     runStandaloneExperiment(n, "some nice experiment" , args)
   }

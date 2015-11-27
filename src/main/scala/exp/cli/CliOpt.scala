@@ -39,16 +39,13 @@ case class CliOptList[+R](opts: Seq[CliOpt[R]]) {
 }
 
 object CliOpt extends StrictLogging {
-
-
-
   def validateDistinct[T](ts: Seq[T]): Val[Seq[T]] = ts.successNel[String]
       .ensureNel("found duplicate argument during construction of CLI", xs => xs.distinct.size == xs.size)
 
   def parse[LUB](args: Array[String], opts: Seq[CliOpt[LUB]]): Val[Seq[LUB]] = {
     def parsePair(key: String, data: String): Val[(CliOpt[LUB],LUB)] = for{
       opt <- opts.find(_.argIdentifiers.contains(key)).toSuccessNel(s"there is no option named $args")
-      value <- opt.valueParser(data).leftMap(errs => s"cannot parse argument ${opt.long}" <:: errs)
+      value <- opt.valueParser(data).leftMap(errs => s"cannot parse argument '--${opt.long}' with input '$data'" <:: errs)
     } yield opt -> value
 
     for {
