@@ -1,38 +1,37 @@
 package exp.node
 
+import scalaz.~>
+
 /**
   * Created by thomas on 26.11.15.
   */
 case object RngInsertion extends Stage {
   override type Payload[+T] = Unit
+  type This = RngInsertion.type
 
-  type StageNode[+T] = Node[RngInsertion.type,T]
+  override type Next = Base.type
+  override def nextStage: RngInsertion.Next = Base
 
   def seed(name: String): Inject[RngInsertion.type, Long] = Inject[RngInsertion.type, Long](this, Unit, Some(name))
 
   implicit def aboveBase: StageAfter[Base.type, RngInsertion.type] = StageAfter(this)
 
-  def insertSeeds[S <: Stage, T](seeds: Seq[Long], node: Node[S, T])(implicit stageCast: StageCast[S, RngInsertion.type]): Node[Base.type, T] ={
+  def insertSeeds[S <: Stage, T](seeds: Seq[Long], node: Node[S, T])(implicit stageCast: StageCast[S, RngInsertion.type]): Node[Base.type, T] = {
     import syntax._
     val baseSeed: Node[Base.type,Long] = Base.fromSeq(seeds, "seed.base")
       .addColumn("seed.base")
 
-    val allSeedNodes = node.allNodes.collect{
-      case i@Inject(RngInsertion, (), Some(name)) => i
+    val allSeedNodes: Seq[InjectNode[Any]] = node.allNodes.collect{
+      case i: Inject[_,_] if i.stage == this => i.asInstanceOf[InjectNode[_]]
     }.toSeq.sortBy(_.name)
 
-    def insertR[T](n: Node[_,T]): Node[Base.type, T] = n match {
-      case i@Inject(RngInsertion, (), Some(name)) =>
+    val procInjects: InjectNode ~> NextNode = new ~>[InjectNode,NextNode]{
+      override def apply[A](fa: InjectNode[A]): NextNode[A] = {
         import syntax._
-        val idx = allSeedNodes.indexOf(i)
-        baseSeed.map(_ + idx, effort = Effort.none, name = s"seed.$name").asInstanceOf[BaseNode[T]]
-      case Wrap(RngInsertion, n) => n.asInstanceOf[Node[Base.type, T]]
-      case App(RngInsertion, ins, f, e, n) => App(Base, ins.map(insertR(_)), f, e, n)
-      case Lift(RngInsertion, p, pie, el, n) => Lift(Base, insertR(p), pie, el, n)
-      case Report(RngInsertion, n, cn, f) => Report(Base, insertR(n), cn, f.asInstanceOf[T => String])
-      case otherwise => sys.error(s"inexhaustive match in RngInsertion on node $otherwise")
+        val idx = allSeedNodes.indexOf(fa)
+        baseSeed.map(_ + idx, effort = Effort.none, name = s"seed.${fa.name.get}").asInstanceOf[NextNode[A]]
+      }
     }
-
-    insertR(stageCast(node))
+    runStage(procInjects)(node)
   }
 }

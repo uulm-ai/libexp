@@ -1,7 +1,29 @@
 package exp.node
 
-trait Stage {
-  type Payload[T]
+import scalaz._
+
+trait Stage { outer =>
+  type Payload[+T]
+  type This <: Stage
+  type Next <: Stage
+
+  final type StageNode[+T] = Node[This,T]
+  final type NextNode[+T]  = Node[Next,T]
+  final type InjectNode[+T] = Inject[This,T]
+
+  def nextStage: Next
+
+  def runStage(injectProc: InjectNode ~> Next#StageNode): StageNode ~> NextNode =
+    new ~>[StageNode,NextNode]{ inner =>
+      override def apply[A](fa: StageNode[A]): NextNode[A] = fa match {
+        case i: Inject[This,A] => injectProc(i).asInstanceOf[NextNode[A]]
+        case Wrap(_, n) => n.asInstanceOf[Node[Next, A]] //validity of this cast is ensured by the existence of StageAfter values
+        case App(_, ins, f, e, n) => App(nextStage, ins.map(inner.apply[Any]), f, e, n)
+        case Lift(_, p, pie, el, n) => Lift(nextStage, inner.apply(p), pie, el, n)
+        case Report(_, n, cn, f) => Report(nextStage, inner.apply(n), cn, f.asInstanceOf[A => String])
+        case otherwise => sys.error(s"inexhaustive match in CliProc on node $otherwise")
+      }
+    }
 }
 
 /** Type-class that indicates that stage `D` is layered below stage `H`, which means that

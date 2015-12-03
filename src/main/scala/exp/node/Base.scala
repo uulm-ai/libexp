@@ -7,6 +7,9 @@ import exp.computation._
   */
 case object Base extends Stage {
   override type Payload[+T] = (IndexedSeq[T], String)
+  override type This = Base.type
+  override def nextStage: Nothing = sys.error("there's no stage after base")
+  override type Next = Nothing
 
   def fromSeq[T](xs: Seq[T], name: String): Inject[Base.type, T] =
     Inject[Base.type,T](this,xs.toIndexedSeq -> name)
