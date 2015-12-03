@@ -1,6 +1,5 @@
 package exp.node
 
-
 sealed trait Node[+S <: Stage, +T]{
   def stage: S
   def dependencies: Set[Node[Stage,_]]
@@ -31,7 +30,9 @@ object App {
   def map[S <: Stage, T, R](n: Node[S,T], effort: Effort = Effort.low, name: Option[String] = None)(f: T => R): Node[S,R] =
     App(n.stage, IndexedSeq(n), ins => f(ins(0).asInstanceOf[T]), effort, name = name)
   def map2[S1 <: Stage, S2 <: Stage, T1, T2, R](n1: Node[S1,T1], n2: Node[S2,T2], effort: Effort = Effort.low, name: Option[String])(f: (T1,T2) => R)(implicit lub: StageLUB[S1,S2]): Node[lub.Out,R] =
-    App(lub.lub, IndexedSeq(lub.lift1(n1),lub.lift2(n2)), (ins: IndexedSeq[_]) => f(ins(0).asInstanceOf[T1],ins(1).asInstanceOf[T2]), name = name)
+    App(lub.lub, IndexedSeq(lub.lift1(n1),lub.lift2(n2)), (ins: IndexedSeq[_]) => f(ins(0).asInstanceOf[T1], ins(1).asInstanceOf[T2]), name = name, effort = effort)
+  def ignoreRight[S1 <: Stage, S2 <: Stage, T1, T2](n1: Node[S1,T1], ignored: Node[S2,T2], name: Option[String] = None)(implicit lub: StageLUB[S1,S2]): Node[lub.Out,T1] =
+    App(lub.lub, IndexedSeq(lub.lift1(n1),lub.lift2(ignored)), (ins: IndexedSeq[_]) => ins(0).asInstanceOf[T1], name = name)
 }
 case class Lift[+S <: Stage,+T](stage: S, p: Node[S,Stream[T]], perItemEffort: Effort = Effort.none, expectedLength: Length, name: Option[String] = None) extends Node[S,T] {
   override def dependencies: Set[Node[Stage, _]] = Set(p)

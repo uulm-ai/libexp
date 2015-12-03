@@ -1,6 +1,6 @@
 package exp.node
 
-import exp.cli.{CLI, CliOpt}
+import exp.cli.{CliOpt, CLI}
 
 /**
   * Created by thomas on 26.11.15.
@@ -16,8 +16,8 @@ object syntax {
   //node constructors
   def fromSeq[T](xs: Seq[T], name: String): BaseNode[T] = Base.fromSeq(xs.toIndexedSeq,name)
   def seed(n: String): RngNode[Long] = RngInsertion.seed(n)
-  def fromCli[S <: Stage,T](cli: CLI[Node[S,T]])(implicit cast: StageCast[S,RngInsertion.type]): CliNode[T] =
-    CliProc.cliOpt(cli.map(cast.apply(_)))
+  def fromCli[S <: Stage,T](cli: CliOpt[Node[S,T]])(implicit cast: StageCast[S,RngInsertion.type]): CliNode[T] =
+    CliProc.cliOpt(cli)(cast)
 
   def ^[S1 <: Stage, S2 <: Stage, T1, T2, R](n1: Node[S1,T1], n2: Node[S2,T2], effort: Effort = Effort.low,name: String = "")(f: (T1,T2) => R)(implicit lub: StageLUB[S1,S2]): Node[lub.Out,R] =
     App.map2(n1,n2,effort,Some(name).filterNot(_ == ""))(f)(lub)
@@ -29,5 +29,6 @@ object syntax {
       Lift(n.stage,n.asInstanceOf[Node[St,Stream[S]]], Effort.none, expectedLength = Length(estimatedLength), name = Some(name).filterNot(_ == ""))
     //annotation and reporting
     def addColumn(name: String, f: T => String = _.toString): Report[St, T, T] = Report(n.stage,n, name, f)
+    def *>[S2 <: Stage](ignored: Node[S2,_])(implicit lub: StageLUB[St,S2]): Node[lub.Out,T] = App.ignoreRight(n,ignored)(lub)
   }
 }

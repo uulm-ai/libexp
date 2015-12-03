@@ -58,6 +58,6 @@ case object Base extends Stage {
           sys.error("this should not happen")
       }
     val conversion = convert(stripped, Map())
-    CGraph(Set(conversion(stripped)), columns.map{case (n,s,f) => Column(s,conversion(n),f)})
+    CGraph(Set(conversion(stripped)), columns.map{case (n,s,f) => Column(s,conversion(n),f)}.distinct)
   }
 }

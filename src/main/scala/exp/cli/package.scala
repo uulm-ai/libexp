@@ -2,18 +2,16 @@ package exp
 
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli.CliOpt._
-import exp.computation.SimpleEvaluator
-import exp.node.Node
-import exp.node._
+import exp.computation.SimpleParallelEvaluator
+import exp.node.{Node, _}
 import fastparse.all._
 import fastparse.core.Result
 
-
 import scala.util.Random
-import scalaz.{Node => _, _}
-import std.list._
-import scalaz.syntax.validation._
+import scalaz.std.list._
 import scalaz.syntax.applicative._
+import scalaz.syntax.validation._
+import scalaz.{Node => _, _}
 
 /**
   * Created by thomas on 27.11.15.
@@ -74,19 +72,16 @@ package object cli extends StrictLogging {
       println(helpText(cliWithSeed))
     } else {
       val result = runCliFree(args,cliWithSeed).map{ case (node, seeds) =>
-        val baseNode = RngInsertion.insertSeeds(seeds,node)
-        val cg = Base.toCGraph(baseNode)
-        (cg,SimpleEvaluator.evalStream(cg))
+        val cg = Base.toCGraph(RngInsertion.insertSeeds(seeds, node))
+        (cg.reports,SimpleParallelEvaluator.evalStream(cg))
       }
 
       result.fold(
         es => println("encountered error during parse:\n\t- " + es),
         {
-          case (cg,vals) =>
-            println(cg.reports.map(_.name).mkString("\t"))
-            vals.foreach(v =>
-              println(cg.reports.map(c => c.f(v(c.node))).mkString("\t"))
-            )
+          case (reports,vals) =>
+            println(reports.map(_.name).mkString("\t"))
+            println(vals.par.map(v => reports.map(c => c.f(v(c.node))).mkString("\t")).seq.mkString("\n"))
         }
       )
     }

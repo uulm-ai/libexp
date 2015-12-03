@@ -1,7 +1,6 @@
 package exp.node
 
-import exp.computation.SimpleEvaluator
-import exp.computation.SimpleEvaluator.Valuation
+import exp.computation.{Valuation, SimpleEvaluator}
 import org.specs2.mutable.Specification
 
 import scala.util.Random
