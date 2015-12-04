@@ -1,6 +1,7 @@
 package exp
 
 import fastparse.all._
+import fastparse.core.Result.Success
 
 /**
   * Created by thomas on 27.11.15.
@@ -14,4 +15,5 @@ package object parsers {
   val pLong: P[Long] = digits.!.map(_.toLong)
   val pInt: P[Int] = digits.!.map(_.toInt)
   val pDouble: P[Double] = P( CharIn("+-").? ~ integral ~ fractional.? ~ exponent.? ).!.map(_.toDouble)
+  val pBool: P[Boolean] = StringIn("true","TRUE","T","1").map(_ => true) | StringIn("false","FALSE","F","0").map( _ => false)
 }
