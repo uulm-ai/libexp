@@ -26,9 +26,9 @@ object syntax {
     //mapping and lifting
     def map[S](f: T => S, effort: Effort = Effort.low, name: String = ""): Node[St,S] = App.map(n,effort, Some(name).filterNot(_ == ""))(f)
     def lift[S](estimatedLength: Double = 10, name: String = "")(implicit ev: T <:< Stream[S]): Node[St,S] =
-      Lift(n.stage,n.asInstanceOf[Node[St,Stream[S]]], Effort.none, expectedLength = Length(estimatedLength), name = Some(name).filterNot(_ == ""))
+      Lift(n.asInstanceOf[Node[St,Stream[S]]], Effort.none, expectedLength = Length(estimatedLength), name = Some(name).filterNot(_ == ""))
     //annotation and reporting
-    def addColumn(name: String, f: T => String = _.toString): Report[St, T, T] = Report(n.stage,n, name, f)
+    def addColumn(name: String, f: T => String = _.toString): Report[St, T, T] = Report(n, name, f)
     def *>[S2 <: Stage](ignored: Node[S2,_])(implicit lub: StageLUB[St,S2]): Node[lub.Out,T] = App.ignoreRight(n,ignored)(lub)
   }
 }

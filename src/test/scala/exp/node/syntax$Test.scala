@@ -9,9 +9,18 @@ class syntax$Test extends Specification {
 
   import syntax._
 
-  "stage cast instances" >> {
-    "ids" >> {
-      implicitly[StageCast[Base.type, Base.type]]
+
+  "compile-time: StageLess instances" >> {
+    implicitly[StageLess[Base.type,RngInsertion.type]]
+    implicitly[StageLess[RngInsertion.type,CliProc.type]]
+    1 === 1
+  }
+
+  "compile-time: stage cast instances" >> {
+    "StageCast equal" >> {
+      implicitly[StageCast[Base.type,Base.type]](StageCast.castEqual)
+      implicitly[StageCast[RngInsertion.type ,RngInsertion.type]]
+      implicitly[StageCast[CliProc.type,CliProc.type]]
       1 === 1
     }
     "one step" >> {
@@ -20,10 +29,11 @@ class syntax$Test extends Specification {
       1 === 1
     }
     "transitive" >> {
-      implicitly[StageCast[Base.type, CliProc.type]](StageCast.transitiveInstance[Base.type,RngInsertion.type,CliProc.type])
+      implicitly[StageCast[Base.type, CliProc.type]]
       1 === 1
     }
   }
+
   "find StageLUB instances" >> {
     implicitly[StageLUB.Aux[Base.type, Base.type, Base.type]]
 

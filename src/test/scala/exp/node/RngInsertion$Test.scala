@@ -12,7 +12,7 @@ class RngInsertion$Test extends Specification {
   import syntax._
 
   def eval[S <: Stage](seeds: Seq[Long], n: Node[S,_])(implicit cast: StageCast[S,RngInsertion.type]): Stream[Valuation] =
-    SimpleEvaluator.evalStream(Base.toCGraph(RngInsertion.insertSeeds(seeds,n)))
+    SimpleEvaluator.evalStream(Base.toCGraph(RngInsertion.insertSeeds(seeds,cast(n))))
 
   "create a random seed" >> {
     val n = seed("rand1")

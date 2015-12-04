@@ -12,18 +12,16 @@ case object RngInsertion extends Stage {
   override type Next = Base.type
   override def nextStage: RngInsertion.Next = Base
 
-  def seed(name: String): Inject[RngInsertion.type, Long] = Inject[RngInsertion.type, Long](this, Unit, Some(name))
+  def seed(name: String): Inject[RngInsertion.type, Long] = Inject[RngInsertion.type, Long](Unit, Some(name))
 
-  implicit def aboveBase: StageAfter[Base.type, RngInsertion.type] = StageAfter(this)
-
-  def insertSeeds[S <: Stage, T](seeds: Seq[Long], node: Node[S, T])(implicit stageCast: StageCast[S, RngInsertion.type]): Node[Base.type, T] = {
+  def insertSeeds[T](seeds: Seq[Long], node: StageNode[T]): NextNode[T] = {
     import syntax._
     val baseSeed: Node[Base.type,Long] = Base.fromSeq(seeds, "seed.base")
       .addColumn("seed.base")
 
-    val allSeedNodes: Seq[InjectNode[Any]] = node.allNodes.collect{
-      case i: Inject[_,_] if i.stage == this => i.asInstanceOf[InjectNode[_]]
-    }.toSeq.sortBy(_.name)
+    val allSeedNodes: Seq[InjectNode[Any]] = node.allNodesOnStage.collect{
+      case i: Inject[This,_] => i
+    }.distinct.sortBy(_.name)
 
     val procInjects: InjectNode ~> NextNode = new ~>[InjectNode,NextNode]{
       override def apply[A](fa: InjectNode[A]): NextNode[A] = {

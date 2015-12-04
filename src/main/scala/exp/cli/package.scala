@@ -119,8 +119,8 @@ object Test {
     val gaussian = seed("gaussian").map(new Random(_).nextGaussian())
       .addColumn("r")
 
-    val n = ^(fromCli(intOpt),gaussian)(_ + _).addColumn("result")
-
-    runStandaloneExperiment(n, "some nice experiment" , args)
+//    val n = ^(fromCli(intOpt),gaussian)(_ + _).addColumn("result")
+//
+//    runStandaloneExperiment(n, "some nice experiment" , args)
   }
 }

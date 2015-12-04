@@ -5,11 +5,12 @@ import scalaz._
 trait Stage { outer =>
   type Payload[+T]
   type This <: Stage
-  type Next <: Stage
 
   final type StageNode[+T] = Node[This,T]
   final type NextNode[+T]  = Node[Next,T]
   final type InjectNode[+T] = Inject[This,T]
+
+  type Next <: Stage
 
   def nextStage: Next
 
@@ -17,50 +18,51 @@ trait Stage { outer =>
     new ~>[StageNode,NextNode]{ inner =>
       override def apply[A](fa: StageNode[A]): NextNode[A] = fa match {
         case i: Inject[This,A] => injectProc(i).asInstanceOf[NextNode[A]]
-        case Wrap(_, n) => n.asInstanceOf[Node[Next, A]] //validity of this cast is ensured by the existence of StageAfter values
-        case App(_, ins, f, e, n) => App(nextStage, ins.map(inner.apply[Any]), f, e, n)
-        case Lift(_, p, pie, el, n) => Lift(nextStage, inner.apply(p), pie, el, n)
-        case Report(_, n, cn, f) => Report(nextStage, inner.apply(n), cn, f.asInstanceOf[A => String])
+        case Wrap(n) => n.asInstanceOf[Node[Next, A]] //validity of this cast is ensured by the existence of StageAfter values
+        case App(ins, f, e, n) => App(ins.map(inner.apply[Any]), f, e, n)
+        case Lift(p, pie, el, n) => Lift(inner.apply(p), pie, el, n)
+        case Report(n, cn, f) => Report(inner.apply(n), cn, f.asInstanceOf[A => String])
         case otherwise => sys.error(s"inexhaustive match in CliProc on node $otherwise")
       }
     }
 }
 
-/** Type-class that indicates that stage `D` is layered below stage `H`, which means that
-  * `H` is processed first, and `D` comes later. */
-case class StageAfter[D <: Stage, H <: Stage](high: H){
-  def wrap[T](n: Node[D,T]): Node[H,T] = Wrap(high,n)(this)
+trait StageLess[L <: Stage, G <: Stage] {
+  def apply[X](n: Node[L,X]): Node[G,X]
 }
 
-trait StageCast[F <: Stage, T <: Stage] {
-  def toStage: T
-  def apply[X](n: Node[F,X]): Node[T,X]
+object StageLess {
+  //unfortunately I could not get automatic inference of transitivity to work
+  implicit def transitiveInstance: StageLess[Base.type,CliProc.type] =
+    new StageLess[Base.type,CliProc.type]{
+      override def apply[X](n: Node[Base.type, X]): Node[CliProc.type, X] =
+        implicitly[StageLess[RngInsertion.type, CliProc.type]].apply(implicitly[StageLess[Base.type, RngInsertion.type]].apply(n))
+    }
+
+  implicit def stageOneStep[N <: Stage, S <: Stage {type Next = N}]: StageLess[N,S] =
+    new StageLess[N,S]{
+      override def apply[X](n: Node[N, X]): Node[S, X] = Wrap[S,X](n)
+    }
+//  implicit def transitiveStep[S1 <: Stage, S3 <: Stage, S2 <: Stage {type Next = S3}](implicit sl: StageLess[S2,S1]): StageLess[S3,S1] = ???
 }
 
-/** Contains the implicits for transitivity. */
-trait LowestPrioritySC {
-  implicit def fromInstance[S <: Stage](implicit ev: StageAfter[_,S]) = new StageCast[S,S]{
-    override def toStage: S = ev.high
-    override def apply[X](n: Node[S, X]): Node[S, X] = n
-  }
-}
-trait SCLowPriorityImplicits extends LowestPrioritySC {
-  implicit def transitiveInstance[S1 <: Stage, S2 <: Stage, S3 <: Stage](implicit s1tos2: StageCast[S1,S2], s1uneqs2: S1 =!= S2, s2tos3: StageCast[S2,S3], s2uneqs3: S2 =!= S3): StageCast[S1,S3] = new StageCast[S1,S3]{
-    override def toStage: S3 = s2tos3.toStage
-    override def apply[X](n: Node[S1, X]): Node[S3, X] = s2tos3(s1tos2(n))
-  }
+trait StageCast[From <: Stage, To <: Stage]{
+  def apply[X](n: Node[From,X]): Node[To,X]
 }
 
-object StageCast extends SCLowPriorityImplicits {
-  implicit def fromSBefore[E <: Stage, L <: Stage](implicit sb: StageAfter[E,L]): StageCast[E,L] = new StageCast[E,L]{
-    override def toStage: L = sb.high
-    override def apply[X](n: Node[E, X]): Node[L, X] = sb.wrap(n)
-  }
+object StageCast {
+  implicit def castEqual[S <: Stage]: StageCast[S, S] with Object {def apply[X](n: Node[S, X]): Node[S, X]} =
+    new StageCast[S,S]{
+      override def apply[X](n: Node[S, X]): Node[S, X] = n
+    }
+  implicit def upCast[Lower <: Stage, Upper <: Stage](implicit sl: StageLess[Lower,Upper]): StageCast[Lower, Upper] =
+    new StageCast[Lower,Upper]{
+      override def apply[X](n: Node[Lower, X]): Node[Upper, X] = sl(n)
+    }
 }
 
 trait StageLUB[S1 <: Stage, S2 <: Stage]{
   type Out <: Stage
-  def lub: Out
   def lift1: StageCast[S1,Out]
   def lift2: StageCast[S2,Out]
 }
@@ -68,7 +70,6 @@ object StageLUB {
   type Aux[S1 <: Stage, S2 <: Stage, S <: Stage] = StageLUB[S1,S2]{type Out = S}
   implicit def lubInstance[S1 <: Stage, S2 <: Stage, LUB <: Stage](implicit cs1: StageCast[S1,LUB], cs2: StageCast[S2,LUB]) = new StageLUB[S1,S2] {
     type Out = LUB
-    override def lub: LUB = cs1.toStage
     override def lift1: StageCast[S1, LUB] = cs1
     override def lift2: StageCast[S2, LUB] = cs2
   }
