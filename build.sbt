@@ -24,16 +24,12 @@ scalaVersion := "2.11.7"
 
 libraryDependencies ++= Seq(
   "com.lihaoyi" %% "fastparse" % "0.2.1",
-  "com.github.scopt" %% "scopt" % "3.2.0",
   "com.chuusai" %% "shapeless" % "2.2.5",
-  "io.reactivex" % "rxscala_2.11" % "0.25.0",
+  "io.reactivex" %% "rxscala" % "0.25.0",
   "org.scalaz" %% "scalaz-core" % "7.1.5",
+  "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+  "org.slf4j" % "slf4j-simple" % "1.7.12",
   "org.apache.commons" % "commons-math3" % "3.5"
 )
-
-//logging stuff
-libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
-
-libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.12"
 
 libraryDependencies += "org.specs2" %% "specs2-core" % "3.6.4" % "test"
