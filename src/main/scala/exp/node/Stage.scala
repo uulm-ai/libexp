@@ -66,6 +66,7 @@ trait StageLUB[S1 <: Stage, S2 <: Stage]{
   def lift1: StageCast[S1,Out]
   def lift2: StageCast[S2,Out]
 }
+
 object StageLUB {
   type Aux[S1 <: Stage, S2 <: Stage, S <: Stage] = StageLUB[S1,S2]{type Out = S}
   implicit def lubInstance[S1 <: Stage, S2 <: Stage, LUB <: Stage](implicit cs1: StageCast[S1,LUB], cs2: StageCast[S2,LUB]) = new StageLUB[S1,S2] {
