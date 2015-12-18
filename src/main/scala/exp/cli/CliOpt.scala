@@ -20,7 +20,7 @@ import scalaz.syntax.validation._
   * @param description Description of the purpose of this option.
   */
 case class CliOpt[+T](long: String,
-                      valueParser: Reader[T],
+                      valueParser: Read[T],
                       description: String = "no description given",
                       short: Option[Char] = None,
                       default: Option[T] = None,
@@ -30,7 +30,7 @@ case class CliOpt[+T](long: String,
     s"""--$long${short.map(c => s" | -$c").getOrElse("")}
        |    $description
        |    format: $formatDescription
-       |    ${default.map(d => s"default: $d").getOrElse("required argument")}"""".stripMargin
+       |    ${default.map(d => s"default: $d").getOrElse("required argument")}""".stripMargin
 }
 
 case class CliOptList[+R](opts: Seq[CliOpt[R]]) {

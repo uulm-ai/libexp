@@ -41,22 +41,61 @@ package object cli extends StrictLogging {
     }
   }
 
+  def runWithHelp[T](cf: CLI[T])(args: Array[String]): T = {
+    //check for help
+    if(args.toSet == Set("--help")){
+      println(helpText(cf))
+      sys.exit(0)
+    } else {
+      runCliFree(args,cf).fold(
+        {
+          e =>
+            println("error parsing arguments: " + Some(args).filterNot(_.isEmpty).map(_.mkString(" ")).getOrElse("<no arguments given>"))
+            println(e.list.mkString("\n"))
+            println("\nusage:")
+            println(helpText(cf))
+            sys.exit(-1)
+        },
+        identity
+      )
+    }
+  }
+
   def helpText(cf: CLI[_]): String = extractOptions(cf).map(_.helpText).mkString("\n")
 
-  type Reader[+T] = String => Val[T]
+  case class Read[+T](f: String => Val[T]) extends (String => Val[T]) {
+    def filter(p: T => Boolean, msg: T => String = "invalid argument: " + _): Read[T] = Read(in =>
+      f(in).flatMap(t => if(p(t)) msg(t).failureNel else t.successNel)
+    )
+    def map[B](g: T => B): Read[B] = Read(in => f(in).map(g))
 
-  def parserToReader[T](p: P[T]): Reader[T] = (s: String) => P(p ~ End).parse(s) match {
+    override def apply(v1: String): Val[T] = f(v1)
+  }
+  object Read {
+    def getString: Read[String] = Read(_.successNel)
+    def fromParser[T](p: P[T]): Read[T] = Read((s: String) => P(p ~ End).parse(s) match {
+      case f@Result.Failure(x,y) =>
+        logger.debug("failed parse: " + f, f)
+        s"failed to parse input: $f".failureNel
+      case s@Result.Success(value,_) =>
+        logger.debug(s"successful parse: " + s, s)
+        value.successNel
+    })
+  }
+
+  @deprecated("use Read.fromParser")
+  def parserToReader[T](p: P[T]): Read[T] = Read((s: String) => P(p ~ End).parse(s) match {
     case f@Result.Failure(x,y) =>
       logger.debug("failed parse: " + f, f)
       s"failed to parse input: $f".failureNel
     case s@Result.Success(value,_) =>
       logger.debug(s"successful parse: " + s, s)
       value.successNel
-  }
+  })
 
   val seedOpt: CLI[Seq[Long]] = CliOpt[Seq[Long]](
     "seeds",
-    parserToReader(P(parsers.pLong ~ ":" ~ parsers.pLong).map(x => x._1 to x._2)),
+    Read.fromParser(P(parsers.pLong ~ ":" ~ parsers.pLong).map(x => x._1 to x._2)),
     "the set of RNG seeds to use",
     Some('s'),
     Some(Seq(1)),
@@ -108,7 +147,7 @@ object Test {
 
     val intOpt: CliOpt[BaseNode[Int]] = CliOpt(
       "test",
-      parserToReader(
+      Read.fromParser(
         exp.parsers.pInt
           .map(n => fromSeq(1 to n, "test.node"))
       ),

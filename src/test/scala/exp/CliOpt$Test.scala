@@ -6,7 +6,7 @@ import fastparse.all._
 
 class CliOpt$Test extends Specification with ValMatchers {
 
-  val someReader: Reader[String] = parserToReader(P("abc").!)
+  val someReader: Read[String] = parserToReader(P("abc").!)
 
   "having multiple inputs with same name must fail" >> {
     val cliOpts = Seq(CliOpt[String]("foo", someReader, short = Some('f')), CliOpt[String]("bar", someReader, short = Some('f')))

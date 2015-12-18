@@ -3,14 +3,12 @@ package exp
 import exp.cli.CliOpt
 import exp.node.syntax._
 import exp.parsers._
+import fastparse.all
 import fastparse.all._
 
-/**
-  * Created by thomas on 15.12.15.
-  */
 package object predefs {
 
-  val intRangeParser = P(
+  val intRangeParser: all.Parser[Seq[Int]] = P(
     (pInt ~ ":" ~ pInt).map(se => se._1 to se._2)
       | ("{" ~ pInt.rep(min = 1, sep = ",") ~ "}")
       | pInt.map(Seq(_)))
@@ -18,12 +16,12 @@ package object predefs {
   def intInput(name: String,
                description: String,
                default: Option[Seq[Int]] = None): CliNode[Int] =
-    fromCli(CliOpt(
+    fromCliSeq(
       name,
-      exp.cli.parserToReader(intRangeParser.map(xs => fromSeq(xs, name))),
-      formatDescription = "integer: either plain '4', list '{1,3,6}', or inclusive range 'start:stop'",
       description = description,
-      default = default.map(fromSeq(_,name)))
+      parser = intRangeParser,
+      format = "integer: either plain '4', list '{1,3,6}', or inclusive range 'start:stop'",
+      default = default
     ).addColumn(name,_.toString)
 
   val doubleRangeParser = P(
@@ -35,10 +33,11 @@ package object predefs {
   def doubleInput(name: String,
                   description: String,
                   default: Option[Seq[Double]] = None): CliNode[Double] =
-    fromCli(CliOpt(
-      name,
-      exp.cli.parserToReader(doubleRangeParser.map(xs => fromSeq(xs, name))),
-      formatDescription = "double: either plain '1e-3', list '{1.0,3,4e2}', or exclusive range '1.0:10:4' (1 to 10 in 4 steps)",
+    fromCliSeq(
+      name = name,
+      parser = doubleRangeParser,
+      format = "double: either plain '1e-3', list '{1.0,3,4e2}', or exclusive range '1.0:10:4' (1 to 10 in 4 steps)",
       description = description,
-      default = default.map(fromSeq(_,name)))).addColumn(name,_.toString)
+      default = default)
+      .addColumn(name,_.toString)
 }
