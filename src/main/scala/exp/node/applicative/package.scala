@@ -55,7 +55,7 @@ package object applicative extends StrictLogging {
 
     val seedInserted = new ~>[N, N] {
       override def apply[A](fa: N[A]): N[A] = fa match {
-        case Seed(name) => pure(seeds, name).asInstanceOf[N[A]]
+        case Seed(name) => pure(seeds, name).lift(seeds.length, s"$name.lifted").asInstanceOf[N[A]]
         case otherwise => otherwise.mapNodes(this)
       }
     }.apply(cliReplaced)
