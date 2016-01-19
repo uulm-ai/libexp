@@ -71,6 +71,7 @@ package object cli extends StrictLogging {
 
     override def apply(v1: String): Val[T] = f(v1)
   }
+
   object Read {
     def getString: Read[String] = Read(_.successNel)
     def fromParser[T](p: P[T]): Read[T] = Read((s: String) => P(p ~ End).parse(s) match {
@@ -101,6 +102,7 @@ package object cli extends StrictLogging {
     Some(Seq(1)),
     "n:m for the range `n` to `m`")
 
+  @deprecated("use exp.application instead")
   def runStandaloneExperiment[S <: Stage](n: Node[S,_], desc: String, args: Array[String])(implicit ev: StageCast[S,CliProc.type]): Unit = {
     val cli: CLI[Node[RngInsertion.type, Any]] = CliProc.createCLI(ev(n))
 
@@ -124,42 +126,5 @@ package object cli extends StrictLogging {
         }
       )
     }
-  }
-
-  def runExperimentSuite(experiments: Seq[ExperimentMonadicCLI], args: Array[String]): Unit = ???
-}
-
-/** The type `Node[CliProc.type,_]` is monadic, as it is not possible to list the columns before evaluation of
-  * cli arguments.
-  *
-  * @param node
-  * @param id
-  * @param description
-  * @param version
-  */
-case class ExperimentMonadicCLI(node: Node[CliProc.type,_], id: String, description: String, version: String)
-
-object Test {
-  import exp.cli._
-  def main(args: Array[String]) {
-    import exp.node.syntax._
-    import fastparse.all._
-
-    val intOpt: CliOpt[BaseNode[Int]] = CliOpt(
-      "test",
-      Read.fromParser(
-        exp.parsers.pInt
-          .map(n => fromSeq(1 to n, "test.node"))
-      ),
-      "test input",
-      default = Some(fromSeq(1 to 10, "test.node"))
-    )
-
-    val gaussian = seed("gaussian").map(new Random(_).nextGaussian())
-      .addColumn("r")
-
-//    val n = ^(fromCli(intOpt),gaussian)(_ + _).addColumn("result")
-//
-//    runStandaloneExperiment(n, "some nice experiment" , args)
   }
 }

@@ -11,7 +11,7 @@ object syntax {
   type BaseNode[+T] = Node[Base.type,T]
   type RngNode[+T]  = Node[RngInsertion.type,T]
   type CliNode[+T]  = Node[CliProc.type,T]
-  type N[+T] = CliNode[T]
+  type N[+T]
 
   implicit def convertStage[From <: Stage,To <: Stage, T](n: Node[From,T])(implicit sc: StageCast[From,To]): Node[To,T] = sc(n)
 
@@ -61,3 +61,5 @@ object syntax {
     def <*[S2 <: Stage](ignored: Node[S2,_])(implicit lub: StageLUB[St,S2]): Node[lub.Out,T] = App.ignoreRight(n,ignored)(lub)
   }
 }
+
+

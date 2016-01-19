@@ -1,25 +1,24 @@
 package exp
 
-import exp.cli.CliOpt
-import exp.node.syntax._
+import exp.cli._
+import exp.node.applicative.syntax._
 import exp.parsers._
-import fastparse.all
 import fastparse.all._
 
 package object predefs {
 
-  val intRangeParser: all.Parser[Seq[Int]] = P(
+  val intRangeParser: Parser[Seq[Int]] = P(
     (pInt ~ ":" ~ pInt).map(se => se._1 to se._2)
       | ("{" ~ pInt.rep(min = 1, sep = ",") ~ "}")
       | pInt.map(Seq(_)))
 
   def intInput(name: String,
                description: String,
-               default: Option[Seq[Int]] = None): CliNode[Int] =
-    fromCliSeq(
+               default: Option[Seq[Int]] = None): N[Int] =
+    cliSeq(
       name,
       description = description,
-      parser = intRangeParser,
+      parser = Read.fromParser(intRangeParser),
       format = "integer: either plain '4', list '{1,3,6}', or inclusive range 'start:stop'",
       default = default
     ).addColumn(name,_.toString)
@@ -32,10 +31,10 @@ package object predefs {
 
   def doubleInput(name: String,
                   description: String,
-                  default: Option[Seq[Double]] = None): CliNode[Double] =
-    fromCliSeq(
+                  default: Option[Seq[Double]] = None): N[Double] =
+    cliSeq(
       name = name,
-      parser = doubleRangeParser,
+      parser = Read.fromParser(doubleRangeParser),
       format = "double: either plain '1e-3', list '{1.0,3,4e2}', or exclusive range '1.0:10:4' (1 to 10 in 4 steps)",
       description = description,
       default = default)

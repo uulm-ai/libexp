@@ -2,6 +2,14 @@ package exp.computation
 
 import com.typesafe.scalalogging.StrictLogging
 
+class ProgressReporter(val totalSize: Long) extends StrictLogging {
+  @volatile private var lastReport: Long = _
+  @volatile private var amountDone: Long = 0L
+  def reportAmount(doneItems: Long): Unit = {
+
+  }
+}
+
 /** Non-Optimizing, single-threaded evaluator. */
 object SimpleEvaluator {
   def evalStream(computation: CGraph): Stream[Valuation] = {
@@ -32,7 +40,12 @@ object SimpleEvaluator {
   }
 }
 
-/** Non-Optimizing, multi-threaded evaluator. */
+/** Non-Optimizing, multi-threaded evaluator.
+  * Works as follows:
+  * 1. find a topological order for nodes
+  * 2. finds a split-point within this order
+  * 3. force the evaluation (outer product) for the first part of the order and parallelize over this collection
+  **/
 object SimpleParallelEvaluator extends StrictLogging {
   def evalStream(computation: CGraph): Seq[Valuation] = {
 

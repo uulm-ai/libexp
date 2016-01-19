@@ -18,4 +18,17 @@ package object exp {
       .sliding(2)
       .dropWhile(two => two(0).size != two(1).size)
       .next().head
+
+  def topologicalOrder[A](query: Iterable[A])(pred: A => Iterable[A]): Seq[A] = {
+    val allNodes = graphClosure(query)(pred)
+
+    def topoSort(remaining: Set[A], acc: List[A], closed: Set[A]): List[A] =
+      if(remaining.isEmpty) acc.reverse
+      else {
+        val next = remaining.find(cand => pred(cand).forall(closed)).getOrElse(sys.error("oops, possibly a cycle in DAG?"))
+        topoSort(remaining - next, next :: acc, closed + next)
+      }
+
+    topoSort(allNodes, Nil, Set())
+  }
 }
