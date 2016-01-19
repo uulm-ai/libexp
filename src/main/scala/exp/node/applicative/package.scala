@@ -2,7 +2,7 @@ package exp.node
 
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli._
-import exp.computation.{Column => CCol,_}
+import exp.computation.{Column => _,_}
 import scalaz.{Node => _,_}
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -27,7 +27,7 @@ package object applicative extends StrictLogging {
 
     override def addColumn[T](n: N[T], name: String, f: T => String): N[T] = Column(n, name, (a: Any) => f(a.asInstanceOf[T]))
 
-    override def seed(name: String): N[Long] = Seed(name)
+    override def seed(name: String): N[Long] = Seed(name).addColumn(s"seed.$name")
 
     override def ignore[T](taken: N[T], ignored: N[Any]): N[T] = ^(taken,ignored, s"ignore.${ignored.name}")((t,i) => t)
   }
@@ -53,9 +53,11 @@ package object applicative extends StrictLogging {
 
     printAllNodes(cliReplaced, "cliReplaced")
 
+    val baseSeed = pure(seeds, "base.seed").lift(seeds.length).addColumn("base.seed")
+
     val seedInserted = new ~>[N, N] {
       override def apply[A](fa: N[A]): N[A] = fa match {
-        case Seed(name) => pure(seeds, name).lift(seeds.length, s"$name.lifted").asInstanceOf[N[A]]
+        case Seed(name) => baseSeed.map(_ ^ name.hashCode.toLong).asInstanceOf[N[A]]
         case otherwise => otherwise.mapNodes(this)
       }
     }.apply(cliReplaced)
