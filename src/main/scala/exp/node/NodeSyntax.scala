@@ -19,6 +19,8 @@ trait NodeSyntax { outer =>
 
   def cli[T](name: String, parser: Read[T], description: String, format: String = "", default: Option[T] = None): N[T]
 
+  def ignore[T](taken: N[T], ignored: N[Any]): N[T]
+
   // derived functions below here
   def cliSeq[T](name: String,
                 parser: exp.cli.Read[Seq[T]],
@@ -41,7 +43,7 @@ trait NodeSyntax { outer =>
       outer.lift(n, estimatedLength, name)
     //annotation and reporting
     def addColumn(name: String, f: T => String = _.toString): N[T] = outer.addColumn(n, name, f)
-    def <*(ignored: N[Any]): N[T] = ^(n, ignored, effort = Effort.none)((n1,n2) => n1)
-    def *>[TT](taken: N[TT]): N[TT] = taken <* n
+    def <*(ignored: N[Any]): N[T] = ignore(n, ignored)
+    def *>[TT](taken: N[TT]): N[TT] = ignore(taken,n)
   }
 }

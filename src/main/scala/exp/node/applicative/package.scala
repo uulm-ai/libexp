@@ -1,13 +1,14 @@
 package exp.node
 
+import com.typesafe.scalalogging.StrictLogging
 import exp.cli._
-import exp.computation._
+import exp.computation.{Column => CCol,_}
 import scalaz.{Node => _,_}
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
 
-package object applicative{
+package object applicative extends StrictLogging {
 
   object syntax extends NodeSyntax {
 
@@ -24,50 +25,63 @@ package object applicative{
     override def cli[T](name: String, parser: Read[T], description: String, format: String = "", default: Option[T] = None): N[T] =
       Cli(CliOpt(name, parser, description, short = None, default = default, formatDescription = format))
 
-    override def addColumn[T](n: N[T], name: String, f: T => String): N[T] = Column(n, name, (a: Any) => f(a.asInstanceOf[T])) *> n
+    override def addColumn[T](n: N[T], name: String, f: T => String): N[T] = Column(n, name, (a: Any) => f(a.asInstanceOf[T]))
 
     override def seed(name: String): N[Long] = Seed(name)
+
+    override def ignore[T](taken: N[T], ignored: N[Any]): N[T] = ^(taken,ignored, s"ignore.${ignored.name}")((t,i) => t)
   }
 
   import syntax._
 
   def buildCGraph(n: N[Any], cliValuation: Cli[Any] => Any, seeds: Seq[Long]): CGraph = {
 
-    val cliReplaced = n.mapNodes(new ~>[N,N]{
-      override def apply[A](fa: N[A]): N[A] = fa match {
-        case cli: Cli[A] => pure(cliValuation(cli).asInstanceOf[A], cli.name)
-        case otherwise => otherwise
-      }
-    })
+    def printAllNodes(x: N[Any], msg: String): Unit = logger.info(
+      s"$msg:\n\t- " + exp.graphClosure(Seq(x))(_.predecessors).toSeq.map(n => s"${n.productPrefix}: ${n.name}").sorted.mkString("\n\t- ")
+    )
 
-    val seedInserted = cliReplaced.mapNodes(new ~>[N,N]{
+    printAllNodes(n,"input")
+
+    val cliReplaced = new ~>[N, N] {
+      override def apply[A](fa: N[A]): N[A] = fa match {
+        case cli: Cli[A] =>
+          pure(cliValuation(cli).asInstanceOf[A], cli.name)
+        case otherwise =>
+          otherwise.mapNodes(this)
+      }
+    }.apply(n)
+
+    printAllNodes(cliReplaced, "cliReplaced")
+
+    val seedInserted = new ~>[N, N] {
       override def apply[A](fa: N[A]): N[A] = fa match {
         case Seed(name) => pure(seeds, name).asInstanceOf[N[A]]
-        case otherwise  => otherwise
+        case otherwise => otherwise.mapNodes(this)
       }
-    })
+    }.apply(cliReplaced)
 
-    val columns: Set[Column] = exp.graphClosure(Seq(seedInserted))(_.predecessors).collect{case c: Column => c}
-
-    val columnToUnitPipe: N ~> N = new ~>[N,N] {
-      override def apply[A](fa: N[A]): N[A] = fa match {
-        case c: Column => MApp(IndexedSeq(fa.n), _ => Unit, "fa.name.unit", Effort.none).asInstanceOf[N[A]]
-        case otherwise => otherwise
-      }
+    val (withoutColumnsMap,columns) = exp.topologicalOrder(Seq(seedInserted))(_.predecessors).foldLeft((Map[N[Any],N[Any]](),Set[Column[Any]]())){
+      case ((m,cs),c@Column(pred, name, rep)) =>
+        (m + (c -> m(pred)), cs + Column(m(pred),name,rep))
+      case ((m,cs),other) =>
+        (m + (other -> other.mapNodes(new ~>[N,N]{
+          override def apply[A](fa: N[A]): N[A] = m(fa).asInstanceOf[N[A]]
+        })),cs)
     }
 
-    val withoutColumns = seedInserted.mapNodes(columnToUnitPipe)
+    val withoutColumns = withoutColumnsMap(seedInserted)
+
+    printAllNodes(withoutColumns, "withoutColumns")
 
     //`withoutColumns` only contains `Pure`, `Lift`, `MApp` nodes
-
     val mapToCEdge: Map[N[Any], CEdge] = exp.topologicalOrder(Seq(withoutColumns))(_.predecessors).foldLeft(Map[N[Any],CEdge]()){
       case (m, p@Pure(value,name)) => m + (p -> CEdge.fromSeq(Seq(value),name))
       case (m, l@Lift(pred, length, name)) => m + (l -> CedgeND(IndexedSeq(m(pred)), name, ins => l.toIterable(ins(0)).toStream, length, 0d, 0d))
       case (m, mapp@MApp(preds, f, name, effort)) => m + (mapp -> CedgeDet(preds.map(m), name, f, effort.expectedTime))
-      case otherwise => sys.error("encountered unexpected node type: " + otherwise)
+      case (_,otherwise) => sys.error("mapToCEdge: encountered unexpected node type: " + otherwise)
     }
 
-    CGraph(Set(mapToCEdge(n)), columns.toSeq.map(col => exp.computation.Column(col.name,mapToCEdge(col.pred), col.reporter)))
+    CGraph(Set(mapToCEdge(withoutColumns)), columns.toSeq.map(col => exp.computation.Column(col.name,mapToCEdge(col.pred), col.reporter)))
   }
 
   def createParser(n: N[Any]): CLI[Seq[Long] => CGraph] = {

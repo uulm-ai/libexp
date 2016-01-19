@@ -5,7 +5,7 @@ import exp.node.{DVariable, IVariable, DescribableExperiment, Effort}
 
 import scalaz.~>
 
-sealed trait Node[+T] {
+sealed trait Node[+T] extends Product {
   def name: String
   def predecessors: IndexedSeq[Node[Any]]
   def mapNodes(f: Node ~> Node): Node[T]
@@ -24,7 +24,7 @@ object Node {
   }
 }
 
-sealed trait SourceNode[+T] extends Node[T]{
+sealed trait SourceNode[+T] extends Node[T] {
   override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq.empty
   override def mapNodes(f: ~>[Node, Node]): Node[T] = this
 }
@@ -44,11 +44,12 @@ case class Lift[+T,Ts](pred: Node[Ts], estimatedLength: Double, name: String)(im
   override def mapNodes(f: ~>[Node, Node]): Node[T] = this.copy(pred = f(pred))
 }
 
-case class Column(pred: Node[Any], name: String, reporter: Any => String) extends Node[Unit]{
+case class Column[T](pred: Node[T], name: String, reporter: Any => String) extends Node[T]{
   override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq(pred)
-  override def mapNodes(f: ~>[Node, Node]): Node[Unit] = this.copy(pred = f(pred))
+  override def mapNodes(f: ~>[Node, Node]): Node[T] = this.copy(pred = f(pred))
 }
 
 case class MApp[+T](predecessors: IndexedSeq[Node[Any]], f: IndexedSeq[Any] => T, name: String, effort: Effort) extends Node[T] {
   override def mapNodes(f: ~>[Node, Node]): Node[T] = this.copy(predecessors = predecessors.map(f.apply))
 }
+
