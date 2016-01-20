@@ -2,6 +2,7 @@ package exp.node
 
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli._
+import exp.computation
 import exp.computation.{Column => _,_}
 import scalaz.{Node => _,_}
 import scalaz.std.list._
@@ -11,6 +12,8 @@ import scalaz.syntax.traverse._
 package object applicative extends StrictLogging {
 
   object syntax extends NodeSyntax {
+
+    override def name(n: N[Any]): String = n.name
 
     type N[+T] = exp.node.applicative.Node[T]
 
@@ -34,46 +37,36 @@ package object applicative extends StrictLogging {
 
   import syntax._
 
+  def logNode(n: N[Any], msg: String): Unit = {
+    logger.debug(s"$msg:\n\t" + exp.graphClosure(Seq(n))(_.predecessors).toSeq.sortBy(_.name).map(n => s"${n.productPrefix}:${n.name}").mkString("\n\t"))
+  }
+
   def buildCGraph(n: N[Any], cliValuation: Cli[Any] => Any, seeds: Seq[Long]): CGraph = {
 
-    def printAllNodes(x: N[Any], msg: String): Unit = logger.info(
-      s"$msg:\n\t- " + exp.graphClosure(Seq(x))(_.predecessors).toSeq.map(n => s"${n.productPrefix}: ${n.name}").sorted.mkString("\n\t- ")
-    )
+    //we do NOT add the column for `base.seed` here, as this will get substituted into the DAG and won't work with
+    //the rewriting algorithm below; instead we add a exp.computation.Column directly further down
+    val baseSeed = pure(seeds, "base.seed").lift(seeds.length)
 
-    printAllNodes(n,"input")
-
-    val cliReplaced = new ~>[N, N] {
-      override def apply[A](fa: N[A]): N[A] = fa match {
-        case cli: Cli[A] =>
-          pure(cliValuation(cli).asInstanceOf[A], cli.name)
+    //replace Cli, Seed, Column at once and filter out Column
+    val (withoutColumnsMap, columns) = exp.topologicalOrder(Seq(n))(_.predecessors).foldLeft((Map[N[Any],N[Any]](),Set[Column[Any]]())){ case ((subst,cols),next) =>
+      next match {
+        case cli: Cli[Any] =>
+          (subst + (cli -> pure(cliValuation(cli), cli.name)), cols)
+        case s@Seed(name) =>
+          (subst + (s -> baseSeed.map(_ ^ name.hashCode)), cols)
+        case c@Column(pred, name, rep) =>
+          val substitutedPredecessor = subst(pred)
+          (subst + (c -> substitutedPredecessor), cols + Column(substitutedPredecessor,name,rep))
         case otherwise =>
-          otherwise.mapNodes(this)
+          (subst + (otherwise -> otherwise.mapNodes(new ~>[N,N]{
+            override def apply[A](fa: N[A]): N[A] = subst(fa).asInstanceOf[N[A]]
+          })), cols)
       }
-    }.apply(n)
-
-    printAllNodes(cliReplaced, "cliReplaced")
-
-    val baseSeed = pure(seeds, "base.seed").lift(seeds.length).addColumn("base.seed")
-
-    val seedInserted = new ~>[N, N] {
-      override def apply[A](fa: N[A]): N[A] = fa match {
-        case Seed(name) => baseSeed.map(_ ^ name.hashCode.toLong).asInstanceOf[N[A]]
-        case otherwise => otherwise.mapNodes(this)
-      }
-    }.apply(cliReplaced)
-
-    val (withoutColumnsMap,columns) = exp.topologicalOrder(Seq(seedInserted))(_.predecessors).foldLeft((Map[N[Any],N[Any]](),Set[Column[Any]]())){
-      case ((m,cs),c@Column(pred, name, rep)) =>
-        (m + (c -> m(pred)), cs + Column(m(pred),name,rep))
-      case ((m,cs),other) =>
-        (m + (other -> other.mapNodes(new ~>[N,N]{
-          override def apply[A](fa: N[A]): N[A] = m(fa).asInstanceOf[N[A]]
-        })),cs)
     }
 
-    val withoutColumns = withoutColumnsMap(seedInserted)
+    val withoutColumns: N[Any] = withoutColumnsMap(n)
 
-    printAllNodes(withoutColumns, "withoutColumns")
+    logNode(withoutColumns, "nodes in computation graph after substitution of Column, Seed, Cli")
 
     //`withoutColumns` only contains `Pure`, `Lift`, `MApp` nodes
     val mapToCEdge: Map[N[Any], CEdge] = exp.topologicalOrder(Seq(withoutColumns))(_.predecessors).foldLeft(Map[N[Any],CEdge]()){
@@ -83,7 +76,11 @@ package object applicative extends StrictLogging {
       case (_,otherwise) => sys.error("mapToCEdge: encountered unexpected node type: " + otherwise)
     }
 
-    CGraph(Set(mapToCEdge(withoutColumns)), columns.toSeq.map(col => exp.computation.Column(col.name,mapToCEdge(col.pred), col.reporter)))
+    val mappedColumns: Seq[computation.Column] =
+      columns.toSeq.map(col => exp.computation.Column(col.name, mapToCEdge(col.pred), col.reporter)) :+
+        exp.computation.Column("base.seed", mapToCEdge(baseSeed), _.toString)
+
+    CGraph(Set(mapToCEdge(withoutColumns)), mappedColumns.sortBy(_.name))
   }
 
   def createParser(n: N[Any]): CLI[Seq[Long] => CGraph] = {
