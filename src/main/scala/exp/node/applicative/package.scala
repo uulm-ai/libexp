@@ -92,7 +92,7 @@ package object applicative extends StrictLogging {
     allCliNodes
       .map(cli => liftCliOpt(cli.parser))
       .sequence
-      .map(parsedArgs =>
+      .map((parsedArgs: List[Any]) =>
         (seeds: Seq[Long]) => buildCGraph(n, allCliNodes.zip(parsedArgs).toMap, seeds)
       )
   }

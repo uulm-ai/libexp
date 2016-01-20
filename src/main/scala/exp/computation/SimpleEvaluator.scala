@@ -83,7 +83,7 @@ object SimpleParallelEvaluator extends StrictLogging {
 
     val (parEdges, seqEdges) = topoOrder.splitAt(parWork.indexOf(maxWork))
 
-    logger.info(s"parallel over [${parEdges.map(_.name).mkString(",")}], sequential over [${seqEdges.map(_.name).mkString(",")}]")
+    logger.info(s"found parallelization scheme:\n\tparallel:\t${parEdges.map(_.name).mkString(",")}\n\tsequential:\t${seqEdges.map(_.name).mkString(",")}")
 
     def evaluate(n: CEdge, valuation: Valuation): Stream[Valuation] = n match {
       case CedgeND(ins,_,f,_,_,_) =>

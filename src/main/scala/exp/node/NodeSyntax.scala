@@ -36,6 +36,20 @@ trait NodeSyntax { outer =>
   def ^^[T1,T2,T3,R](n1: N[T1], n2: N[T2], n3: N[T3], name: String = "", effort: Effort = Effort.low)(f: (T1,T2,T3) => R): N[R] =
     mAppNUntyped(IndexedSeq(n1,n2,n3), ins => f(ins(0).asInstanceOf[T1],ins(1).asInstanceOf[T2], ins(2).asInstanceOf[T3]), Some(name).filter(_.nonEmpty).getOrElse(s"^^(${n1.name},${n2.name},${n3.name})"), effort)
 
+  def ^^^[T1,T2,T3,T4,R](n1: N[T1], n2: N[T2], n3: N[T3], n4: N[T4], name: String = "", effort: Effort = Effort.low)(f: (T1,T2,T3,T4) => R): N[R] =
+    mAppNUntyped(
+      IndexedSeq(n1,n2,n3,n4),
+      ins => f(ins(0).asInstanceOf[T1],ins(1).asInstanceOf[T2], ins(2).asInstanceOf[T3], ins(3).asInstanceOf[T4]),
+      Some(name).filter(_.nonEmpty).getOrElse(s"^^(${n1.name},${n2.name},${n3.name},${n4.name})"),
+      effort)
+
+  def ^^^^[T1,T2,T3,T4,T5,R](n1: N[T1], n2: N[T2], n3: N[T3], n4: N[T4], n5: N[T5], name: String = "", effort: Effort = Effort.low)(f: (T1,T2,T3,T4,T5) => R): N[R] =
+    mAppNUntyped(
+      IndexedSeq(n1,n2,n3,n4,n5),
+      ins => f(ins(0).asInstanceOf[T1],ins(1).asInstanceOf[T2], ins(2).asInstanceOf[T3], ins(3).asInstanceOf[T4], ins(4).asInstanceOf[T5]),
+      Some(name).filter(_.nonEmpty).getOrElse(s"^^(${n1.name},${n2.name},${n3.name},${n4.name},${n5.name})"),
+      effort)
+
   implicit class RichNode[T](val n: N[T]) {
     def name: String = outer.name(n)
     //mapping and lifting
