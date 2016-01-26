@@ -11,6 +11,7 @@ import scalaz.syntax.applicative._
   * Created by thomas on 19.01.16.
   */
 package object application {
+
   def runStandaloneExperiment(n: N[Any], desc: String, args: Array[String]): Unit = {
     val cli: CLI[(Seq[Long]) => CGraph] = createParser(n)
 
@@ -28,17 +29,17 @@ package object application {
     if(args.toSet == Set("--help")){
       println(helpText(cliWithSeed))
     } else {
-      val result = runCliFree(args,cliWithSeed).map{ case (node, seeds) =>
+      runCliFree(args,cliWithSeed).map{ case (node, seeds) =>
         val cg = node(seeds)
         (cg.reports,SimpleParallelEvaluator.evalStream(cg))
-      }
-
-      result.fold(
+      }.fold(
         es => println("encountered error during parse:\n\t- " + es),
         {
           case (reports,vals) =>
             println(reports.map(_.name).mkString("\t"))
-            println(vals.par.map(v => reports.map(c => c.f(v(c.node))).mkString("\t")).seq.mkString("\n"))
+            vals
+              .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
+              .foreach(println(_))
         }
       )
     }

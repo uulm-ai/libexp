@@ -2,13 +2,8 @@ package exp.computation
 
 import com.typesafe.scalalogging.StrictLogging
 
-class ProgressReporter(val totalSize: Long) extends StrictLogging {
-  @volatile private var lastReport: Long = _
-  @volatile private var amountDone: Long = 0L
-  def reportAmount(doneItems: Long): Unit = {
-
-  }
-}
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
 
 /** Non-Optimizing, single-threaded evaluator. */
 object SimpleEvaluator {
@@ -47,7 +42,7 @@ object SimpleEvaluator {
   * 3. force the evaluation (outer product) for the first part of the order and parallelize over this collection
   **/
 object SimpleParallelEvaluator extends StrictLogging {
-  def evalStream(computation: CGraph): Seq[Valuation] = {
+  def evalStream(computation: CGraph): Stream[Valuation] = {
 
     def topoSort(remaining: Set[CEdge], acc: List[CEdge]): List[CEdge] = {
 
@@ -92,14 +87,22 @@ object SimpleParallelEvaluator extends StrictLogging {
         Stream(valuation + (n -> f(ins map valuation.apply)))
     }
 
-    val sequentialValuations = parEdges.foldLeft(Stream(Valuation(Map()))){case (vs,node) =>
+    val sequentialValuations: Stream[Valuation] = parEdges.foldLeft(Stream(Valuation(Map()))){case (vs,node) =>
       vs.flatMap(v => evaluate(node,v))
     }
 
-    sequentialValuations.par.flatMap(seqInitVal =>
-      seqEdges.foldLeft(Stream(seqInitVal)){case (vs,node) =>
-        vs.flatMap(v => evaluate(node,v))
-      }.force
-    ).seq
+    def innerEval(seqInitVal: Valuation): Stream[Valuation] =
+      seqEdges.foldLeft(Stream(seqInitVal)) { case (vs, node) =>
+        vs.flatMap(v => evaluate(node, v))
+      }
+
+    import concurrent.ExecutionContext.Implicits.global
+    sequentialValuations.map(v => Future.apply(innerEval(v).force))
+      .force //force evaluation of futures
+      .flatMap(Await.result(_,Duration.Inf))
+
+//    sequentialValuations.par.flatMap(seqInitVal =>
+//      innerEval(seqInitVal).force
+//    ).seq.toStream
   }
 }
