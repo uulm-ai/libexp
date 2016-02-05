@@ -29,14 +29,17 @@ package object application {
     if(args.toSet == Set("--help")){
       println(helpText(cliWithSeed))
     } else {
-      runCliFree(args,cliWithSeed).map{ case (node, seeds) =>
-        val cg = node(seeds)
-        (cg.reports,SimpleParallelEvaluator.evalStream(cg))
-      }.fold(
+      runCliFree(args,cliWithSeed)
+        .map{ case (node, seeds) =>
+          val cg = node(seeds)
+          (cg.reports,SimpleParallelEvaluator.evalStream(cg))}
+        .fold(
         es => println("encountered error during parse:\n\t- " + es),
         {
           case (reports,vals) =>
+            //print headers
             println(reports.map(_.name).mkString("\t"))
+            //print rows
             vals
               .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
               .foreach(println(_))

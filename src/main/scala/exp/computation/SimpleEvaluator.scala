@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
+import concurrent.ExecutionContext.Implicits.global
 
 /** Non-Optimizing, single-threaded evaluator. */
 object SimpleEvaluator {
@@ -87,7 +88,7 @@ object SimpleParallelEvaluator extends StrictLogging {
         Stream(valuation + (n -> f(ins map valuation.apply)))
     }
 
-    val sequentialValuations: Stream[Valuation] = parEdges.foldLeft(Stream(Valuation(Map()))){case (vs,node) =>
+    val parallelValuations: Stream[Valuation] = parEdges.foldLeft(Stream(Valuation(Map()))){case (vs,node) =>
       vs.flatMap(v => evaluate(node,v))
     }
 
@@ -96,13 +97,8 @@ object SimpleParallelEvaluator extends StrictLogging {
         vs.flatMap(v => evaluate(node, v))
       }
 
-    import concurrent.ExecutionContext.Implicits.global
-    sequentialValuations.map(v => Future.apply(innerEval(v).force))
-      .force //force evaluation of futures
+    parallelValuations.map(v => Future.apply(innerEval(v).force))
+      .force //force evaluation of all futures
       .flatMap(Await.result(_,Duration.Inf))
-
-//    sequentialValuations.par.flatMap(seqInitVal =>
-//      innerEval(seqInitVal).force
-//    ).seq.toStream
   }
 }
