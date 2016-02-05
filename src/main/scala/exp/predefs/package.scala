@@ -39,4 +39,14 @@ package object predefs {
       description = description,
       default = default)
       .addColumn(name,_.toString)
+
+  def stringEnum(name: String, values: Seq[String], description: String, defaults: Seq[String] = Seq()): N[String] =
+    cliSeq[String](
+      name = name,
+      parser = Read.fromParser(StringIn(values:_*).!.map(Seq(_)) | P("{" ~ StringIn(values:_*).!.rep(min = 1, sep = ",") ~ "}")),
+      format = s"one of the strings (${values.mkString(",")}), or a ',' separated list of them incurly braces: {foo,bar}",
+      description = description,
+      default = Some(defaults).filterNot(_.isEmpty)
+    )
+      .addColumn(name,identity)
 }
