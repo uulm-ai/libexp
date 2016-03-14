@@ -2,14 +2,11 @@ package exp
 
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli.CliOpt._
-import exp.computation.{Valuation, SimpleParallelEvaluator}
+import exp.computation.SimpleParallelEvaluator
 import exp.node.{Node, _}
 import fastparse.all._
 import fastparse.core.Result
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
 import scala.util.Random
 import scalaz.std.list._
 import scalaz.syntax.applicative._
@@ -123,15 +120,9 @@ package object cli extends StrictLogging {
       result.fold(
         es => println("encountered error during parse:\n\t- " + es),
         {
-          case (reports,vals: Stream[Future[Stream[Valuation]]]) =>
+          case (reports,vals) =>
             println(reports.map(_.name).mkString("\t"))
-            vals
-              .foreach(_.onSuccess({ case stream =>
-                stream
-                  .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
-                  .foreach(println(_))
-              }))
-            Await.ready(Future.sequence(vals), Duration.Inf) // prevents JVM from exiting
+            println(vals.par.map(v => reports.map(c => c.f(v(c.node))).mkString("\t")).seq.mkString("\n"))
         }
       )
     }

@@ -2,8 +2,9 @@ package exp.computation
 
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+import concurrent.ExecutionContext.Implicits.global
 
 /** Non-Optimizing, single-threaded evaluator. */
 object SimpleEvaluator {
@@ -42,7 +43,7 @@ object SimpleEvaluator {
   * 3. force the evaluation (outer product) for the first part of the order and parallelize over this collection
   **/
 object SimpleParallelEvaluator extends StrictLogging {
-  def evalStream(computation: CGraph): Stream[Future[Stream[Valuation]]] = {
+  def evalStream(computation: CGraph): Stream[Valuation] = {
 
     def topoSort(remaining: Set[CEdge], acc: List[CEdge]): List[CEdge] = {
 
@@ -96,7 +97,30 @@ object SimpleParallelEvaluator extends StrictLogging {
         vs.flatMap(v => evaluate(node, v))
       }
 
-    parallelValuations.map(v => Future.apply(innerEval(v).force))
-      .force //force evaluation of all futures
+    def getInt(name: String, default: String) = (try System.getProperty(name, default) catch {
+      case e: SecurityException => default
+    }) match {
+      case s if s.charAt(0) == 'x' => (Runtime.getRuntime.availableProcessors * s.substring(1).toDouble).ceil.toInt
+      case other => other.toInt
+    }
+
+    def range(floor: Int, desired: Int, ceiling: Int) = scala.math.min(scala.math.max(floor, desired), ceiling)
+
+    val desiredParallelism = range(
+      getInt("scala.concurrent.context.minThreads", "1"),
+      getInt("scala.concurrent.context.numThreads", "x1"),
+      getInt("scala.concurrent.context.maxThreads", "x1"))
+
+    val rawStream: Stream[Future[Stream[Valuation]]] = parallelValuations.map(v => Future.apply(innerEval(v).force))
+
+    def next(raw: Stream[Future[Stream[Valuation]]]): Stream[Valuation] = {
+      if (raw.isEmpty) Stream.empty
+      else {
+        raw.drop(desiredParallelism)
+        Await.result(raw.head,Duration.Inf) #::: next(raw.tail)
+      }
+    }
+
+    next(rawStream)
   }
 }
