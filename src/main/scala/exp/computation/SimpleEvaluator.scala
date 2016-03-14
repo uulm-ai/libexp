@@ -2,9 +2,8 @@ package exp.computation
 
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.Duration
-import concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 /** Non-Optimizing, single-threaded evaluator. */
 object SimpleEvaluator {
@@ -43,7 +42,7 @@ object SimpleEvaluator {
   * 3. force the evaluation (outer product) for the first part of the order and parallelize over this collection
   **/
 object SimpleParallelEvaluator extends StrictLogging {
-  def evalStream(computation: CGraph): Stream[Valuation] = {
+  def evalStream(computation: CGraph): Stream[Future[Stream[Valuation]]] = {
 
     def topoSort(remaining: Set[CEdge], acc: List[CEdge]): List[CEdge] = {
 
@@ -99,6 +98,5 @@ object SimpleParallelEvaluator extends StrictLogging {
 
     parallelValuations.map(v => Future.apply(innerEval(v).force))
       .force //force evaluation of all futures
-      .flatMap(Await.result(_,Duration.Inf))
   }
 }

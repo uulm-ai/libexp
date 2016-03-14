@@ -2,9 +2,13 @@ package exp
 
 import exp.cli._
 import exp.computation.{CGraph, SimpleParallelEvaluator}
-import exp.node.applicative.syntax.N
 import exp.node.applicative._
+import exp.node.applicative.syntax.N
 import fastparse.all._
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import scalaz.syntax.applicative._
 
 /**
@@ -41,8 +45,12 @@ package object application {
             println(reports.map(_.name).mkString("\t"))
             //print rows
             vals
-              .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
-              .foreach(println(_))
+              .foreach(_.onSuccess({ case stream =>
+                stream
+                  .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
+                  .foreach(println(_))
+              }))
+            Await.ready(Future.sequence(vals), Duration.Inf) // prevents JVM from exiting
         }
       )
     }
