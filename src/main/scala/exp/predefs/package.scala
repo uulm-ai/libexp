@@ -8,9 +8,9 @@ import fastparse.all._
 package object predefs {
 
   val intRangeParser: Parser[Seq[Int]] = P(
-    (pInt ~ ":" ~ pInt).map(se => se._1 to se._2)
-      | ("{" ~ pInt.rep(min = 1, sep = ",") ~ "}")
-      | pInt.map(Seq(_)))
+    (pPosInt ~ ":" ~ pPosInt).map(se => se._1 to se._2)
+      | ("{" ~ pPosInt.rep(min = 1, sep = ",") ~ "}")
+      | pPosInt.map(Seq(_)))
 
   def intInput(name: String,
                description: String,
@@ -24,7 +24,7 @@ package object predefs {
     ).addColumn(name,_.toString)
 
   val doubleRangeParser = P(
-    (pDouble ~ ":" ~ pDouble ~ ":" ~ pInt).map{case (f,t,steps) => Seq.iterate(f,steps)(_ + ((t-f)/(steps - 1)))}
+    (pDouble ~ ":" ~ pDouble ~ ":" ~ pPosInt).map{case (f,t,steps) => Seq.iterate(f,steps)(_ + ((t-f)/(steps - 1)))}
       | ("{" ~ pDouble.rep(min = 1, sep = ",") ~ "}")
       | pDouble.map(Seq(_))
   )

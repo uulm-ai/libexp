@@ -96,7 +96,7 @@ package object cli extends StrictLogging {
 
   val seedOpt: CLI[Seq[Long]] = CliOpt[Seq[Long]](
     "seeds",
-    Read.fromParser(P(parsers.pLong ~ ":" ~ parsers.pLong).map(x => x._1 to x._2)),
+    Read.fromParser(P(parsers.pPosLong ~ ":" ~ parsers.pPosLong).map(x => x._1 to x._2)),
     "the set of RNG seeds to use",
     Some('s'),
     Some(Seq(1)),
