@@ -7,7 +7,7 @@ import exp.node.{Node, _}
 import fastparse.all._
 import fastparse.core.Result
 
-import scala.util.Random
+import scala.language.implicitConversions
 import scalaz.std.list._
 import scalaz.syntax.applicative._
 import scalaz.syntax.validation._

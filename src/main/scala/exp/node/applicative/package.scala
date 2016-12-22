@@ -76,6 +76,8 @@ package object applicative extends StrictLogging {
       case (_,otherwise) => sys.error("mapToCEdge: encountered unexpected node type: " + otherwise)
     }
 
+    if(!mapToCEdge.contains(baseSeed))
+      logger.info("not adding random seed node because no seed requested")
     //only add a column for the base.seed when there is a seed node
     val mappedColumns: Seq[computation.Column] =
       columns.toSeq.map(col => exp.computation.Column(col.name, mapToCEdge(col.pred), col.reporter)) ++
