@@ -69,16 +69,18 @@ package object applicative extends StrictLogging {
     logNode(withoutColumns, "nodes in computation graph after substitution of Column, Seed, Cli")
 
     //`withoutColumns` only contains `Pure`, `Lift`, `MApp` nodes
-    val mapToCEdge: Map[N[Any], CEdge] = exp.topologicalOrder(Seq(withoutColumns))(_.predecessors).foldLeft(Map[N[Any],CEdge]()){
-      case (m, p@Pure(value,name)) => m + (p -> CEdge.fromSeq(Seq(value),name))
+    val mapToCEdge: Map[N[Any], CNode] = exp.topologicalOrder(Seq(withoutColumns))(_.predecessors).foldLeft(Map[N[Any],CNode]()){
+      case (m, p@Pure(value,name)) => m + (p -> CNode.fromSeq(Seq(value),name))
       case (m, l@Lift(pred, length, name)) => m + (l -> CedgeND(IndexedSeq(m(pred)), name, ins => l.toIterable(ins(0)).toStream, length, 0d, 0d))
       case (m, mapp@MApp(preds, f, name, effort)) => m + (mapp -> CedgeDet(preds.map(m), name, f, effort.expectedTime))
       case (_,otherwise) => sys.error("mapToCEdge: encountered unexpected node type: " + otherwise)
     }
 
+    //only add a column for the base.seed when there is a seed node
     val mappedColumns: Seq[computation.Column] =
-      columns.toSeq.map(col => exp.computation.Column(col.name, mapToCEdge(col.pred), col.reporter)) :+
-        exp.computation.Column("base.seed", mapToCEdge(baseSeed), _.toString)
+      columns.toSeq.map(col => exp.computation.Column(col.name, mapToCEdge(col.pred), col.reporter)) ++
+        ( if(mapToCEdge.contains(baseSeed)) Seq(exp.computation.Column("base.seed", mapToCEdge(baseSeed), _.toString))
+          else Seq() )
 
     CGraph(Set(mapToCEdge(withoutColumns)), mappedColumns.sortBy(_.name))
   }

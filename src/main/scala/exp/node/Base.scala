@@ -32,12 +32,12 @@ case object Base extends Stage {
 
   def toCGraph(node: Node[Base.type,_]): CGraph = {
     val (stripped, columns) = stripReport(node)
-    def convert(n: Node[Base.type,_], acc: Map[Node[Base.type,_], CEdge]): Map[Node[Base.type,_],CEdge] =
+    def convert(n: Node[Base.type,_], acc: Map[Node[Base.type,_], CNode]): Map[Node[Base.type,_],CNode] =
       if(acc.contains(n)) acc
       else n match {
         case Inject(payload,_) =>
           val (xs: IndexedSeq[Any], name) = payload
-          acc + (n -> CEdge.fromSeq(xs,name))
+          acc + (n -> CNode.fromSeq(xs,name))
         case Lift(p,perItem,expectedLength,nameOpt) =>
           val newMap = convert(p,acc)
           val liftNode = CedgeND(

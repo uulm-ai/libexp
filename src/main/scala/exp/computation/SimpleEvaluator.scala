@@ -10,7 +10,7 @@ import concurrent.ExecutionContext.Implicits.global
 object SimpleEvaluator {
   def evalStream(computation: CGraph): Stream[Valuation] = {
 
-    def topoSort(remaining: Set[CEdge], acc: List[CEdge]): List[CEdge] = {
+    def topoSort(remaining: Set[CNode], acc: List[CNode]): List[CNode] = {
       val open = remaining.filterNot(r => r.ins.exists(remaining))
       if(open.isEmpty){
         require(remaining.isEmpty, "computation graph contains a directed cycle")
@@ -21,9 +21,9 @@ object SimpleEvaluator {
       }
     }
 
-    val topoOrder: List[CEdge] = topoSort(computation.nodeClosure, Nil)
+    val topoOrder: List[CNode] = topoSort(computation.nodeClosure, Nil)
 
-    def evaluate(n: CEdge, valuation: Valuation): Stream[Valuation] = n match {
+    def evaluate(n: CNode, valuation: Valuation): Stream[Valuation] = n match {
       case CedgeND(ins,_,f,_,_,_) =>
         f(ins.map(valuation.apply)).map(x => valuation + (n -> x))
       case CedgeDet(ins,_,f,_)    =>
@@ -45,7 +45,7 @@ object SimpleEvaluator {
 object SimpleParallelEvaluator extends StrictLogging {
   def evalStream(computation: CGraph, desiredParallelism: Int = Runtime.getRuntime.availableProcessors * 2): Stream[Valuation] = {
 
-    def topoSort(remaining: Set[CEdge], acc: List[CEdge]): List[CEdge] = {
+    def topoSort(remaining: Set[CNode], acc: List[CNode]): List[CNode] = {
 
       val open = remaining.filterNot(r => r.ins.exists(remaining))
       if(open.isEmpty){
@@ -57,7 +57,7 @@ object SimpleParallelEvaluator extends StrictLogging {
       }
     }
 
-    val topoOrder: List[CEdge] = topoSort(computation.nodeClosure, Nil)
+    val topoOrder: List[CNode] = topoSort(computation.nodeClosure, Nil)
 
     val remainingCost = topoOrder.map{
       case CedgeND(_,_,_,_,cpuInit,cpuItem) => cpuInit + cpuItem
@@ -81,7 +81,7 @@ object SimpleParallelEvaluator extends StrictLogging {
 
     logger.info(s"found parallelization scheme:\n\tparallel:\t${parEdges.map(_.name).mkString(",")}\n\tsequential:\t${seqEdges.map(_.name).mkString(",")}")
 
-    def evaluate(n: CEdge, valuation: Valuation): Stream[Valuation] = n match {
+    def evaluate(n: CNode, valuation: Valuation): Stream[Valuation] = n match {
       case CedgeND(ins,_,f,_,_,_) =>
         f(ins.map(valuation.apply)).map(x => valuation + (n -> x))
       case CedgeDet(ins,_,f,_)    =>
