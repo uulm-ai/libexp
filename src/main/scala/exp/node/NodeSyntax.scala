@@ -50,6 +50,13 @@ trait NodeSyntax { outer =>
       Some(name).filter(_.nonEmpty).getOrElse(s"^^(${n1.name},${n2.name},${n3.name},${n4.name},${n5.name})"),
       effort)
 
+  def ^^^^^[T1,T2,T3,T4,T5,T6,R](n1: N[T1], n2: N[T2], n3: N[T3], n4: N[T4], n5: N[T5], n6: N[T6], name: String = "", effort: Effort = Effort.low)(f: (T1,T2,T3,T4,T5,T6) => R): N[R] =
+    mAppNUntyped(
+      IndexedSeq(n1,n2,n3,n4,n5,n6),
+      ins => f(ins(0).asInstanceOf[T1],ins(1).asInstanceOf[T2], ins(2).asInstanceOf[T3], ins(3).asInstanceOf[T4], ins(4).asInstanceOf[T5], ins(5).asInstanceOf[T6]),
+      Some(name).filter(_.nonEmpty).getOrElse(s"^^(${n1.name},${n2.name},${n3.name},${n4.name},${n5.name},${n6.name})"),
+      effort)
+
   implicit class RichNode[T](val n: N[T]) {
     def name: String = outer.name(n)
     //mapping and lifting
