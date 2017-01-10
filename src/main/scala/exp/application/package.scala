@@ -35,19 +35,19 @@ package object application {
 
     //check for help
     if(args.toSet == Set("--help")){
-      println(helpText(cliWithSeed))
+      System.err.println(helpText(cliWithSeed))
     } else {
       runCliFree(args,cliWithSeed).map{ case (node, seeds, parallelism) =>
         val cg = node(seeds)
         (cg.reports,SimpleParallelEvaluator.evalStream(cg, parallelism))
       }.fold(
-        es => println("encountered error during parse:\n\t- " + es),
+        es => System.err.println("encountered error during parse:\n\t- " + es),
         {
           case (reports,vals) =>
-            println(reports.map(_.name).mkString("\t"))
+            System.out.println(reports.map(_.name).mkString("\t"))
             vals
               .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
-              .foreach(println(_))
+              .foreach(System.out.println)
         }
       )
     }
