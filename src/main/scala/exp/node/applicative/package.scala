@@ -70,7 +70,7 @@ package object applicative extends StrictLogging {
 
     //`withoutColumns` only contains `Pure`, `Lift`, `MApp` nodes
     val mapToCEdge: Map[N[Any], CNode] = exp.topologicalOrder(Seq(withoutColumns))(_.predecessors).foldLeft(Map[N[Any],CNode]()){
-      case (m, p@Pure(value,name)) => m + (p -> CNode.fromSeq(Seq(value),name))
+      case (m, p@Pure(value,name)) => m + (p -> CNode.pure(value,name))
       case (m, l@Lift(pred, length, name)) => m + (l -> CedgeND(IndexedSeq(m(pred)), name, ins => l.toIterable(ins(0)).toStream, length, 0d, 0d))
       case (m, mapp@MApp(preds, f, name, effort)) => m + (mapp -> CedgeDet(preds.map(m), name, f, effort.expectedTime))
       case (_,otherwise) => sys.error("mapToCEdge: encountered unexpected node type: " + otherwise)

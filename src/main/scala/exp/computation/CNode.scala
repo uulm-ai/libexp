@@ -10,6 +10,7 @@ sealed trait CNode {
 
 object CNode {
   def fromSeq[T](xs: Seq[T], name: String) = CedgeND(IndexedSeq(), name, _ => xs.toStream, xs.length, 0.00001d, 0.000001d)
+  def pure[T](x: T, name: String) = CedgeDet(IndexedSeq(), name, _ => x, 0.00001d)
 }
 
 /** A non-deterministic computation node produces multiple output values for each set of input values. */
