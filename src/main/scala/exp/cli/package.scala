@@ -122,7 +122,7 @@ package object cli extends StrictLogging {
         {
           case (reports,vals) =>
             println(reports.map(_.name).mkString("\t"))
-            println(vals.par.map(v => reports.map(c => c.f(v(c.node))).mkString("\t")).seq.mkString("\n"))
+            println(vals.map(v => reports.map(c => c.f(v(c.node))).mkString("\t")).mkString("\n"))
         }
       )
     }
