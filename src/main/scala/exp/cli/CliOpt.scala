@@ -3,13 +3,8 @@ package exp.cli
 import com.typesafe.scalalogging.StrictLogging
 import exp._
 import fastparse.all._
-import fastparse.core.Result
 
-import scalaz._
-import scalaz.std.list._
-import scalaz.syntax.std.option._
-import scalaz.syntax.traverse._
-import scalaz.syntax.validation._
+import cats.implicits._
 
 /** Specifies how to obtain a value of type `T` from command-line arguments.
   *
@@ -39,22 +34,23 @@ case class CliOptList[+R](opts: Seq[CliOpt[R]]) {
 }
 
 object CliOpt extends StrictLogging {
-  def validateDistinct[T](ts: Seq[T]): Val[Seq[T]] = ts.successNel[String]
-      .ensureNel("found duplicate argument during construction of CLI", xs => xs.distinct.size == xs.size)
+  def validateDistinct[T](ts: Seq[T]): Val[Seq[T]] = ts
+    .asRight[String]
+    .filterOrElse(xs => xs.distinct.size == xs.size, "found duplicate argument during construction of CLI")
 
   def parse[LUB](args: Array[String], opts: Seq[CliOpt[LUB]]): Val[Seq[LUB]] = {
     def parsePair(key: String, data: String): Val[(CliOpt[LUB],LUB)] = for{
-      opt <- opts.find(_.argIdentifiers.contains(key)).toSuccessNel(s"there is no option named $key")
-      value <- opt.valueParser(data).leftMap(errs => s"cannot parse argument '--${opt.long}' with input '$data'" <:: errs)
+      opt <- opts.find(_.argIdentifiers.contains(key)).toRight(s"there is no option named $key")
+      value <- opt.valueParser(data).left.map(errs => s"cannot parse argument '--${opt.long}' with input '$data'; also " + errs)
     } yield opt -> value
 
     for {
       _ <- validateDistinct(opts.flatMap(_.argIdentifiers))
       kv <- args.grouped(2).toList
-        .successNel[String].ensureNel("requiring an even number of arguments", _.forall(_.length % 2 == 0))
+        .asRight[String].filterOrElse(x => x.forall(_.length % 2 == 0), "requiring an even number of arguments")
       parsedKV <- kv.map(two => parsePair(two(0),two(1))).sequence
       parsedResult = parsedKV.toMap
-      result <- opts.toList.map(co => parsedResult.get(co).orElse(co.default).toSuccessNel(s"missing required argument  '--${co.long}'")).sequenceU
+      result <- opts.toList.map(co => parsedResult.get(co).orElse(co.default).toRight(s"missing required argument  '--${co.long}'")).sequenceU
     } yield result
   }
 }

@@ -4,8 +4,11 @@ import exp.cli._
 import exp.computation.{CGraph, SimpleParallelEvaluator}
 import exp.node.applicative.syntax.N
 import exp.node.applicative._
+
 import fastparse.all._
-import scalaz.syntax.applicative._
+
+import cats.Cartesian
+import cats.syntax.cartesian._
 
 /**
   * Created by thomas on 19.01.16.
@@ -31,7 +34,7 @@ package object application {
       Some(Runtime.getRuntime.availableProcessors * 2),
       "positive integer")
 
-    val cliWithSeed: CLI[(Seq[Long] => CGraph,Seq[Long],Int)] = ^^(cli,seedOpt,parallelismOpt)((_,_,_))
+    val cliWithSeed: CLI[(Seq[Long] => CGraph,Seq[Long],Int)] = Cartesian.map3(cli,seedOpt,parallelismOpt)((_,_,_))
 
     //check for help
     if(args.toSet == Set("--help")){

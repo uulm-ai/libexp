@@ -1,12 +1,13 @@
 package exp.node
 
+import cats.~>
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli._
 import exp.computation
-import exp.computation.{Column => _,_}
-import scalaz.{Node => _,_}
-import scalaz.std.list._
-import scalaz.syntax.traverse._
+import exp.computation.{Column => _, _}
+
+import cats.syntax.traverse._
+import cats.instances.list._
 
 
 package object applicative extends StrictLogging {
