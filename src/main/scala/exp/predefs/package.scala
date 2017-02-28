@@ -1,7 +1,7 @@
 package exp
 
 import exp.cli._
-import exp.node.applicative.syntax._
+import exp.node.syntax._
 import exp.parsers._
 import fastparse.all._
 

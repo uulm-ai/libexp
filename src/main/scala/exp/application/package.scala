@@ -2,8 +2,8 @@ package exp
 
 import exp.cli._
 import exp.computation.{CGraph, SimpleParallelEvaluator}
-import exp.node.applicative.syntax.N
-import exp.node.applicative._
+import exp.node.syntax.N
+import exp.node._
 
 import fastparse.all._
 

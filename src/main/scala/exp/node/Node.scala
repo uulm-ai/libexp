@@ -1,8 +1,7 @@
-package exp.node.applicative
+package exp.node
 
 import cats.~>
 import exp.cli.CliOpt
-import exp.node.{DVariable, DescribableExperiment, Effort, IVariable}
 
 sealed trait Node[+T] extends Product {
   def name: String

@@ -1,22 +1,20 @@
-package exp.node
+package exp
 
+import cats.instances.list._
+import cats.syntax.traverse._
 import cats.~>
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli._
-import exp.computation
 import exp.computation.{Column => _, _}
 
-import cats.syntax.traverse._
-import cats.instances.list._
 
-
-package object applicative extends StrictLogging {
+package object node extends StrictLogging {
 
   object syntax extends NodeSyntax {
 
     override def name(n: N[Any]): String = n.name
 
-    type N[+T] = exp.node.applicative.Node[T]
+    type N[+T] = Node[T]
 
     override def lift[T, S](n: N[T], estimatedLength: Double, name: String)(implicit ev: <:<[T, Iterable[S]]): N[S] =
       Lift(n, estimatedLength, name)(ev)
