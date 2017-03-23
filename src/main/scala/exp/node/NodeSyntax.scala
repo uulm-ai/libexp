@@ -1,8 +1,16 @@
 package exp.node
 
+import exp.parsers
 import exp.cli.Read
+import fastparse.all._
 
 import scala.language.higherKinds
+
+
+final case class Table(name: String)
+object Table{
+  final val default:  Table = Table("default")
+}
 
 /** Syntax for nodes. */
 trait NodeSyntax { outer =>
@@ -11,18 +19,27 @@ trait NodeSyntax { outer =>
   def name(n: N[Any]): String
   def pure[T](x: T, name: String): N[T]
   def lift[T,S](n: N[T],estimatedLength: Double = 10, name: String = "")(implicit ev: T <:< Iterable[S]): N[S]
-  def seed(name: String): N[Long]
-  def addColumn[T](n: N[T], name: String, f: T => String): N[T]
+
+  def addColumn[T](n: N[T], name: String, f: T => String, tables: Set[Table] = Set(Table.default)): N[T]
 
   def mAppNUntyped[R](nodes: IndexedSeq[N[Any]],
                       f: IndexedSeq[Any] => R,
                       name: String = "", effort: Effort = Effort.low): N[R]
-
   def cli[T](name: String, parser: Read[T], description: String, format: String = "", default: Option[T] = None): N[T]
 
   def ignore[T](taken: N[T], ignored: N[Any]): N[T]
 
   // derived functions below here
+
+  protected[exp] val baseSeed: N[Long] = lift(cli[Seq[Long]](
+    "seeds",
+    Read.fromParser(P(parsers.pPosLong ~ ":" ~ parsers.pPosLong).map(x => x._1 to x._2)),
+    "the set of RNG seeds to use",
+    "n:m for the range `n` to `m`",
+    Some(Seq(1))
+  ), 100, "base.seed").addColumn("base.seed", _.toString)
+
+  def seed(name: String): N[Long] = baseSeed.map(s => (s,name).hashCode, name)
   def cliSeq[T](name: String,
                 parser: exp.cli.Read[Seq[T]],
                 description: String,
@@ -65,7 +82,8 @@ trait NodeSyntax { outer =>
     def lift[S](estimatedLength: Double = 10, name: String = s"lift.${n.name}")(implicit ev: T <:< Iterable[S]): N[S] =
       outer.lift(n, estimatedLength, name)
     //annotation and reporting
-    def addColumn(name: String, f: T => String = _.toString): N[T] = outer.addColumn(n, name, f)
+    def addColumn(name: String, f: T => String = _.toString, tables: Set[Table] = Set(Table.default)): N[T] =
+      outer.addColumn(n, name, f, tables)
     def <*(ignored: N[Any]): N[T] = ignore(n, ignored)
     def *>[TT](taken: N[TT]): N[TT] = ignore(taken,n)
   }

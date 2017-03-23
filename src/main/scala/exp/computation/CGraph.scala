@@ -5,7 +5,7 @@ package exp.computation
   *
   * Created by thomas on 26.11.15.
   */
-case class CGraph(sinkNodes: Set[CNode], reports: Seq[Column]){
+case class CGraph(sinkNodes: Set[CNode], reports: Seq[CColumn]){
   /** The set of all nodes transitively referenced by the `sinkNodes`, including `sinkNodes`. */
   lazy val nodeClosure: Set[CNode] = exp.graphClosure(sinkNodes)(_.ins)
 }

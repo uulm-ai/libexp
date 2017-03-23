@@ -1,12 +1,11 @@
 package exp
 
+import java.io.PrintStream
+
 import exp.cli._
 import exp.computation.{CGraph, SimpleParallelEvaluator}
 import exp.node.syntax.N
 import exp.node._
-
-import fastparse.all._
-
 import cats.Cartesian
 import cats.syntax.cartesian._
 
@@ -14,17 +13,8 @@ import cats.syntax.cartesian._
   * Created by thomas on 19.01.16.
   */
 package object application {
-
-  def runStandaloneExperiment(n: N[Any], desc: String, args: Array[String]): Unit = {
-    val cli: CLI[(Seq[Long]) => CGraph] = createParser(n)
-
-    val seedOpt: CLI[Seq[Long]] = CliOpt[Seq[Long]](
-      "seeds",
-      Read.fromParser(P(parsers.pPosLong ~ ":" ~ parsers.pPosLong).map(x => x._1 to x._2)),
-      "the set of RNG seeds to use",
-      Some('s'),
-      Some(Seq(1)),
-      "n:m for the range `n` to `m`")
+  def runStandaloneExperiment(n: N[Any], desc: String, args: Array[String], out: PrintStream = System.out): Unit = {
+    val cli: CLI[CGraph] = createParser(n)
 
     val parallelismOpt: CLI[Int] = CliOpt[Int](
       "desired-parallelism",
@@ -34,23 +24,22 @@ package object application {
       Some(Runtime.getRuntime.availableProcessors * 2),
       "positive integer")
 
-    val cliWithSeed: CLI[(Seq[Long] => CGraph,Seq[Long],Int)] = Cartesian.map3(cli,seedOpt,parallelismOpt)((_,_,_))
+    val cliWithOpts: CLI[(CGraph,Int)] = Cartesian.tuple2(cli,parallelismOpt)
 
     //check for help
     if(args.toSet == Set("--help")){
-      System.err.println(helpText(cliWithSeed))
+      System.err.println(helpText(cliWithOpts))
     } else {
-      runCliFree(args,cliWithSeed).map{ case (node, seeds, parallelism) =>
-        val cg = node(seeds)
+      runCliFree(args,cliWithOpts).map{ case (cg, parallelism) =>
         (cg.reports,SimpleParallelEvaluator.evalStream(cg, parallelism))
       }.fold(
         es => System.err.println("encountered error during parse:\n\t- " + es),
         {
           case (reports,vals) =>
-            System.out.println(reports.map(_.name).mkString("\t"))
+            out.println(reports.map(_.name).mkString("\t"))
             vals
               .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
-              .foreach(System.out.println)
+              .foreach(out.println)
         }
       )
     }

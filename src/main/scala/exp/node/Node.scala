@@ -17,7 +17,7 @@ object Node {
       case Pure(_, name) => IVariable(name, None, None)
     }
     override def outputs(a: Node[Any]): Seq[DVariable] = exp.graphClosure(Set(a))(_.predecessors).toSeq.sortBy(_.name).collect{
-      case Column(_, name, _) => DVariable(name,None, None)
+      case Column(_, name, _, _) => DVariable(name,None, None)
     }
   }
 }
@@ -27,9 +27,6 @@ sealed trait SourceNode[+T] extends Node[T] {
   override def mapNodes(f: ~>[Node, Node]): Node[T] = this
 }
 case class Pure[+T](value: T, name: String) extends SourceNode[T]{
-  override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq.empty
-}
-case class Seed(name: String) extends SourceNode[Long]{
   override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq.empty
 }
 case class Cli[+T](parser: CliOpt[T]) extends SourceNode[T]{
@@ -42,7 +39,7 @@ case class Lift[+T,Ts](pred: Node[Ts], estimatedLength: Double, name: String)(im
   override def mapNodes(f: ~>[Node, Node]): Node[T] = this.copy(pred = f(pred))
 }
 
-case class Column[T](pred: Node[T], name: String, reporter: Any => String) extends Node[T]{
+case class Column[T](pred: Node[T], name: String, reporter: Any => String, tables: Set[Table]) extends Node[T]{
   override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq(pred)
   override def mapNodes(f: ~>[Node, Node]): Node[T] = this.copy(pred = f(pred))
 }
