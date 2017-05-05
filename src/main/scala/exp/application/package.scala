@@ -44,4 +44,36 @@ package object application {
       )
     }
   }
+
+//  def saveGraph(n: Node[_], args: Array[String], fileName: String): Unit = {
+//    import vultura.util.graph.graphviz._
+//    import exp.node._
+//
+//    val parser: CLI[(Seq[Long]) => CGraph] = createParser(n)
+//
+//    val argsWithoutSeed = {
+//      val (pre,post) = args.span(s => s != "--seed" && s != "-s")
+//      pre ++ post.drop(2)
+//    }
+//    exp.cli
+//      .runCliFree(argsWithoutSeed, parser)
+//      .fold(
+//        err => logger.warn("error rendering computation graph: " + err.toString),
+//        {
+//          runCG =>
+//            val cg = runCG(Seq(0))
+//            logger.info(s"rendering computation graph to file $fileName.pdf")
+//            val dot: DotGraph[CNode, (CNode, CNode)] = DotGraph(
+//              cg.nodeClosure,
+//              cg.nodeClosure.flatMap(n => n.ins.map(_ -> n))
+//            )
+//
+//            dot
+//              .labelNodes{ case x => x.name}
+//              .addNodeAttribute{
+//                case _: CedgeND => Color.ORANGE
+//              }
+//              .renderPDF(fileName)}
+//      )
+//  }
 }

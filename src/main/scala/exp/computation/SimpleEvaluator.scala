@@ -5,23 +5,26 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration
 import concurrent.ExecutionContext.Implicits.global
+import scala.annotation.tailrec
+
+object Evaluation {
+  @tailrec
+  def topoSort[A: Ordering](remaining: Set[CNode], acc: List[CNode] = Nil)(selectBy: CNode => A): List[CNode] = {
+    val open = remaining.filterNot(r => r.ins.exists(remaining))
+    if(open.isEmpty){
+      require(remaining.isEmpty, "computation graph contains a directed cycle")
+      acc.reverse
+    } else {
+      val n = open.minBy(selectBy)
+      topoSort(remaining - n, n :: acc)(selectBy)
+    }
+  }
+}
 
 /** Non-Optimizing, single-threaded evaluator. */
 object SimpleEvaluator extends StrictLogging {
   def evalStream(computation: CGraph): Stream[Valuation] = {
-
-    def topoSort(remaining: Set[CNode], acc: List[CNode]): List[CNode] = {
-      val open = remaining.filterNot(r => r.ins.exists(remaining))
-      if(open.isEmpty){
-        require(remaining.isEmpty, "computation graph contains a directed cycle")
-        acc.reverse
-      } else {
-        val n = open.minBy(e => e.isInstanceOf[CedgeDet])
-        topoSort(remaining - n, n :: acc)
-      }
-    }
-
-    val topoOrder: List[CNode] = topoSort(computation.nodeClosure, Nil)
+    val topoOrder: List[CNode] = Evaluation.topoSort(computation.nodeClosure)(_.isInstanceOf[CedgeDet])
     logger.info("topological order used for computation: " + topoOrder.mkString(","))
     def evaluate(n: CNode, valuation: Valuation): Stream[Valuation] = n match {
       case CedgeND(ins,_,f,_,_,_) =>
@@ -45,22 +48,10 @@ object SimpleEvaluator extends StrictLogging {
 object SimpleParallelEvaluator extends StrictLogging {
   def evalStream(computation: CGraph, desiredParallelism: Int = Runtime.getRuntime.availableProcessors * 2): Iterator[Valuation] = {
 
-    def topoSort(remaining: Set[CNode], acc: List[CNode]): List[CNode] = {
-
-      val open = remaining.filterNot(r => r.ins.exists(remaining))
-      if(open.isEmpty){
-        require(remaining.isEmpty, "computation graph contains a directed cycle")
-        acc.reverse
-      } else {
-        val n = open.minBy(e => (
-          e.isInstanceOf[CedgeND],
-          Some(e).collect{case nd: CedgeND => nd.estimatedLength}.getOrElse(1d)
-        ))
-        topoSort(remaining - n, n :: acc)
-      }
-    }
-
-    val topoOrder: List[CNode] = topoSort(computation.nodeClosure, Nil)
+    val topoOrder: List[CNode] = Evaluation.topoSort(computation.nodeClosure)((e: CNode) => (
+      e.isInstanceOf[CedgeND],
+      Some(e).collect{case nd: CedgeND => nd.estimatedLength}.getOrElse(1d)
+    ))
 
     logger.info("topological node order used for computation: " + topoOrder.map(_.name).mkString(","))
 
