@@ -1,19 +1,19 @@
 package exp
 
 import java.io.PrintStream
+import java.util.Date
 
+import cats.Cartesian
 import exp.cli._
 import exp.computation.{CGraph, SimpleParallelEvaluator}
-import exp.node.syntax.N
 import exp.node._
-import cats.Cartesian
-import cats.syntax.cartesian._
+import exp.node.syntax.N
 
 /**
   * Created by thomas on 19.01.16.
   */
 package object application {
-  def runStandaloneExperiment(n: N[Any], desc: String, args: Array[String], out: PrintStream = System.out): Unit = {
+  def runStandaloneExperiment(n: N[Any], desc: String, args: Array[String], out: PrintStream = System.out, commentSymbol: Option[Char] = Some('#')): Unit = {
     val cli: CLI[CGraph] = createParser(n)
 
     val parallelismOpt: CLI[Int] = CliOpt[Int](
@@ -21,11 +21,16 @@ package object application {
       Read.fromParser(parsers.pPosInt),
       "the maximum number of computations started simultaneously",
       None,
-      Some(Runtime.getRuntime.availableProcessors * 2),
+      Some(1),
       "positive integer")
 
     val cliWithOpts: CLI[(CGraph,Int)] = Cartesian.tuple2(cli,parallelismOpt)
 
+    commentSymbol.foreach{comSym =>
+      out.println(s"$comSym produced by: $desc")
+      out.println(s"$comSym date: ${new Date}")
+      out.println(s"$comSym program arguments: ${args.mkString(" ")}")
+    }
     //check for help
     if(args.toSet == Set("--help")){
       System.err.println(helpText(cliWithOpts))

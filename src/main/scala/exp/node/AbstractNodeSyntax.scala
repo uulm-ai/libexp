@@ -1,7 +1,7 @@
 package exp.node
 
-import exp.parsers
 import exp.cli.Read
+import exp.parsers
 import fastparse.all._
 
 import scala.language.higherKinds
@@ -13,7 +13,7 @@ object Table{
 }
 
 /** Syntax for nodes. */
-trait NodeSyntax { outer =>
+trait AbstractNodeSyntax extends cats.CartesianArityFunctions { outer =>
   type N[+T]
 
   def name(n: N[Any]): String

@@ -6,11 +6,10 @@ import cats.~>
 import com.typesafe.scalalogging.StrictLogging
 import exp.cli._
 import exp.computation._
-import fastparse.all._
 
 package object node extends StrictLogging {
 
-  object syntax extends NodeSyntax {
+  trait NodeSyntax extends AbstractNodeSyntax {
 
     override def name(n: N[Any]): String = n.name
 
@@ -32,6 +31,8 @@ package object node extends StrictLogging {
 
     override def ignore[T](taken: N[T], ignored: N[Any]): N[T] = ^(taken,ignored, s"ignore.${ignored.name}")((t,i) => t)
   }
+
+  object syntax extends NodeSyntax
 
   import syntax._
 
