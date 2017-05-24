@@ -86,6 +86,10 @@ package object node extends StrictLogging {
       case cli: Cli[Any] => cli
     }.toList.sortBy(_.name)
 
+    //check for duplicated names and warn
+    allCliNodes.groupBy(_.name).filter(_._2.distinct.size > 1)
+      .foreach(dup => logger.warn("different nodes with same name found: " + dup))
+
     allCliNodes
       .map(cli => liftCliOpt(cli.parser))
       .sequence
