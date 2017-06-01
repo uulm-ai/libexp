@@ -17,7 +17,7 @@ package object application {
     val cli: CLI[CGraph] = createParser(n)
 
     val parallelismOpt: CLI[Int] = CliOpt[Int](
-      "desired-parallelism",
+      "parallelism",
       Read.fromParser(parsers.pPosInt),
       "the maximum number of computations started simultaneously",
       None,
@@ -41,9 +41,10 @@ package object application {
         es => System.err.println("encountered error during parse:\n\t- " + es),
         {
           case (reports,vals) =>
-            out.println(reports.map(_.name).mkString("\t"))
+            val sortedReps = reports.sortBy(_.name)
+            out.println(sortedReps.map(_.name).mkString("\t"))
             vals
-              .map(v => reports.map(c => c.f(v(c.node))).mkString("\t"))
+              .map(v => sortedReps.map(c => c.f(v(c.node))).mkString("\t"))
               .foreach(out.println)
         }
       )
