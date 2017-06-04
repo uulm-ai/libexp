@@ -80,9 +80,11 @@ package object node extends StrictLogging {
     CGraph(Set(mapToCEdge(withoutColumns)), mappedColumns)
   }
 
+  def nodeClosure(n: N[Any]): Set[Node[Any]] = exp.graphClosure(Seq(n))(_.predecessors)
+
   def createParser(n: N[Any]): CLI[CGraph] = {
     //collect cli nodes
-    val allCliNodes: List[Cli[Any]] = exp.graphClosure(Seq(n))(_.predecessors).collect{
+    val allCliNodes: List[Cli[Any]] = nodeClosure(n).collect{
       case cli: Cli[Any] => cli
     }.toList.sortBy(_.name)
 

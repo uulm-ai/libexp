@@ -8,6 +8,7 @@ object SimpleEvaluator extends StrictLogging {
     implicit val sortingOrder: Ordering[CNode] = Ordering.by(_.isInstanceOf[CedgeDet])
     val topoOrder: List[CNode] = exp.util.topoSort(computation.nodeClosure)
     logger.info("topological order used for computation: " + topoOrder.mkString(","))
+
     def evaluate(n: CNode, valuation: Valuation): Stream[Valuation] = n match {
       case CedgeND(ins,_,f,_,_,_) =>
         f(ins.map(valuation.apply)).map(x => valuation + (n -> x))
