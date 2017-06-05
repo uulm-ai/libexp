@@ -38,6 +38,5 @@ class SimpleTabledEvaluatorTest extends Specification {
     "only first input" >> (channel1.result === Seq(Map("i" -> 1), Map("i" -> 2)))
     "only second input" >> (channel2.result === Seq(Map("i2" -> 3), Map("i2" -> 4)))
     "both" >> (channel3.result.toSet === Set((1,3),(2,3),(1,4),(2,4)).map(t => Map("t" -> t)))
-
   }
 }

@@ -2,8 +2,16 @@ package exp.computation
 
 import cats.Eval
 import com.typesafe.scalalogging.StrictLogging
+import exp.node
 
 object SimpleTabledEvaluator extends StrictLogging {
+
+  case class ActiveVal(v: Valuation, activeNodes: Set[CNode]) {
+    def add(n: CNode, value: Any, active: Boolean) = ActiveVal(v + (n,value), activeNodes ++ Some(n).filter(_ => active))
+  }
+  object ActiveVal {
+    def empty: ActiveVal = ActiveVal(Valuation.empty, Set.empty)
+  }
 
   def evalReportsUnsafe(computation: CGraph, channels: Set[UnsafeChannel]): Eval[Unit] = {
     implicit val sortingOrder: Ordering[CNode] = Ordering.by(_.isInstanceOf[CedgeDet])
@@ -19,24 +27,31 @@ object SimpleTabledEvaluator extends StrictLogging {
         sat.map(Right(_)).toList ++ (Left(nextNode) :: closed)
     }.reverse
 
-    def evaluate(n: CNode, valuation: Valuation): Stream[Valuation] = n match {
+    /** One step expansion. */
+    def evaluate(n: CNode, av: ActiveVal): Stream[ActiveVal] = n match {
       case CedgeND(ins,_,f,_,_,_) =>
-        f(ins.map(valuation.apply)).map(x => valuation + (n -> x))
+        f(ins.map(av.v)).zip(true +: Stream.continually(false)).map((av.add(n,_: Any,_: Boolean)).tupled)
       case CedgeDet(ins,_,f,_)    =>
-        Stream(valuation + (n -> f(ins map valuation.apply)))
+        Stream(av.add(n, f(ins map av.v), ins.forall(av.activeNodes)))
     }
 
+    def channelClosure[T](c: Channel[T]): Set[CNode] = exp.graphClosure(c.nodes)(_.ins)
     import cats.instances.all._
     import cats.syntax.all._
-    def process(v: Valuation, actions: List[CNode Either UnsafeChannel]): Eval[Unit] = actions match {
+    def process(v: ActiveVal, actions: List[CNode Either UnsafeChannel]): Eval[Unit] = actions match {
       case Nil =>
         Eval.Unit
       case Left(cn) :: ta =>
         evaluate(cn, v).map(process(_,ta)).sequence.map(_ => Unit)
       case Right(oc) :: ta =>
-        oc.evalUnsafe(v) >> process(v,ta)
+        //perform channel action only if all non-predecessors are either unevaluated, or active (have their first assignment)
+        val channelAction = if((v.v.assignment.keySet -- channelClosure(oc)).forall(v.activeNodes))
+          oc.evalUnsafe(v.v)
+        else
+          Eval.Unit
+        channelAction >> process(v,ta)
     }
 
-    process(Valuation.empty, zipped.toList)
+    process(ActiveVal.empty, zipped.toList)
   }
 }

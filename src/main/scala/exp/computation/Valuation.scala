@@ -5,7 +5,7 @@ import cats.Monoid
 /**
   * Created by thomas on 02.12.15.
   */
-case class Valuation(assignment: Map[CNode,Any]){
+case class Valuation(assignment: Map[CNode,Any]) extends (CNode => Any) {
   def apply(n: CNode): Any = assignment(n)
   def +(entry: (CNode,Any)): Valuation = Valuation(assignment + entry)
 
