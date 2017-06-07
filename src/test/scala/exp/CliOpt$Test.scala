@@ -20,7 +20,7 @@ class CliOpt$Test extends Specification {
 
   "not being able to parse data completely must be failure" >> {
     val cliOpts = Seq(CliOpt[String]("foo", someReader, short= Some('f')))
-    CliOpt.parse(Array("--foo", "abcd"),cliOpts) must beRight
+    CliOpt.parse(Array("--foo", "abcd"),cliOpts) must beLeft
   }
 
   "succeed parsing single required option with long arg" >> {

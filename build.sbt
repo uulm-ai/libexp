@@ -14,7 +14,7 @@ organizationHomepage := Some(url("http://www.uni-ulm.de/en/in/ki.html"))
 3.0.1: move to new dependencies (also scalaz -> cats);
        remove all old stuff, move some classes around (from exp.node.applicative to exp.node)
  */
-version := "3.0.1-DEV"
+version := "4.0.0-DEV"
 
 description := "A Scala library for describing computational experiments"
 
