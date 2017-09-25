@@ -6,10 +6,30 @@ import fastparse.all._
 
 import scala.language.higherKinds
 
-
 final case class Table(name: String)
 object Table{
   final val default:  Table = Table("default")
+}
+
+trait Reportable[A]{
+  def report(a: A): String
+}
+object Reportable {
+  implicit object StringReporter extends Reportable[String]{
+    override def report(a: String): String = a
+  }
+  implicit object IntReporter extends Reportable[Int]{
+    override def report(a: Int): String = a.toString
+  }
+  implicit object LongReportable extends Reportable[Long]{
+    override def report(a: Long): String = a.toString
+  }
+  implicit object DoubleReporter extends Reportable[Double]{
+    override def report(a: Double): String = a.toString
+  }
+  implicit object BooleanReporter extends Reportable[Boolean]{
+    override def report(a: Boolean): String = a.toString
+  }
 }
 
 /** Syntax for nodes. */
@@ -20,11 +40,14 @@ trait AbstractNodeSyntax extends cats.CartesianArityFunctions { outer =>
   def pure[T](x: T, name: String): N[T]
   def lift[T,S](n: N[T],estimatedLength: Double = 10, name: String = "")(implicit ev: T <:< Iterable[S]): N[S]
 
+  /** Add a column to the CSV output. */
   def addColumn[T](n: N[T], name: String, f: T => String, tables: Set[Table] = Set(Table.default)): N[T]
 
   def mAppNUntyped[R](nodes: IndexedSeq[N[Any]],
                       f: IndexedSeq[Any] => R,
                       name: String = "", effort: Effort = Effort.low): N[R]
+
+  /** Create a new command line argument. */
   def cli[T](name: String, parser: Read[T], description: String, format: String = "", default: Option[T] = None): N[T]
 
   def ignore[T](taken: N[T], ignored: N[Any]): N[T]
@@ -37,7 +60,7 @@ trait AbstractNodeSyntax extends cats.CartesianArityFunctions { outer =>
     "the set of RNG seeds to use",
     "n:m for the range `n` to `m`",
     Some(Seq(1))
-  ), 100, "base.seed").addColumn("base.seed", _.toString)
+  ), 100, "base.seed").report("base.seed", _.toString)
 
   def seed(name: String): N[Long] = baseSeed.map(s => (s,name).hashCode, name)
   def cliSeq[T](name: String,
@@ -76,15 +99,30 @@ trait AbstractNodeSyntax extends cats.CartesianArityFunctions { outer =>
 
   implicit class RichNode[T](val n: N[T]) {
     def name: String = outer.name(n)
-    //mapping and lifting
     def map[S](f: T => S, name: String = s"map.${n.name}", effort: Effort = Effort.low): N[S] =
       outer.mAppNUntyped(IndexedSeq(n),ins => f(ins(0).asInstanceOf[T]), name, effort)
+
+    /** If this node holds an [[Iterable]] value, then expand it. */
     def lift[S](estimatedLength: Double = 10, name: String = s"lift.${n.name}")(implicit ev: T <:< Iterable[S]): N[S] =
       outer.lift(n, estimatedLength, name)
-    //annotation and reporting
-    def addColumn(name: String, f: T => String = _.toString, tables: Set[Table] = Set(Table.default)): N[T] =
-      outer.addColumn(n, name, f, tables)
+
+    /** Add a new column computed by a given function `f`. */
+    def report[A: Reportable](name: String, f: T => A, tables: Set[Table] = Set(Table.default)): N[T] =
+      outer.addColumn(n, name, f andThen implicitly[Reportable[A]].report, tables)
+
+    /** Report the current value of this node as a new column.
+      * The value must be of a [[Reportable]] type.
+      */
+    def reportAs(name: String, tables: Set[Table] = Set(Table.default))(implicit r: Reportable[T]): N[T] = report(name, identity, tables)
+    /** Report the current value of this node using its `toString` method. */
+    def reportAsString(name: String, tables: Set[Table] = Set(Table.default)): N[T] = report(name, _.toString, tables)
+
+    /** Ignore the right node, but keep it within the computation graph.
+      * This is useful if you keep it for its columns. */
     def <*(ignored: N[Any]): N[T] = ignore(n, ignored)
+
+    /** Ignore the left node, but keep it within the computation graph.
+      * This is useful if you keep it for its columns. */
     def *>[TT](taken: N[TT]): N[TT] = ignore(taken,n)
   }
 }

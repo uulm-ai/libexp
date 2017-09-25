@@ -32,16 +32,16 @@ class SimpleActionEvaluatorTest extends Specification {
   }
 
   "single node" >> {
-    val n = pure(List(1,2), "input").lift(2).addColumn("i")
+    val n = pure(List(1,2), "input").lift(2).reportAsString("i")
     val cg: CGraph = node.buildCGraph(n, _ => null)
     val channel = SetActionUnsafe("test", cg, Set("i"))
     SimpleActionEvaluator.runGraphUnsafe(cg, Set(channel)).value
     channel.result === Seq(Map("i" -> 1),Map("i" -> 2))
   }
   "two nodes" >> {
-    val n = pure(List(1,2), "input").lift(2).addColumn("i")
-    val n2 = pure(List(3,4), "input2").lift(2).addColumn("i2")
-    val tupled = ^(n, n2, "tupled")((_, _)).addColumn("t")
+    val n = pure(List(1,2), "input").lift(2).reportAsString("i")
+    val n2 = pure(List(3,4), "input2").lift(2).reportAsString("i2")
+    val tupled = ^(n, n2, "tupled")((_, _)).reportAsString("t")
     val cg: CGraph = node.buildCGraph(tupled, _ => null)
     val channel1 = SetActionUnsafe("c1", cg, Set("i"))
     val channel2 = SetActionUnsafe("c2", cg, Set("i2"))
@@ -53,9 +53,9 @@ class SimpleActionEvaluatorTest extends Specification {
   }
 
   "two nodes and mapping" >> {
-    val n = pure(List(1,2), "input").lift(2).map(identity).addColumn("i")
-    val n2 = pure(List(3,4), "input2").lift(2).addColumn("i2")
-    val tupled = ^(n, n2, "tupled")((_, _)).map(identity).addColumn("t")
+    val n = pure(List(1,2), "input").lift(2).map(identity).reportAsString("i")
+    val n2 = pure(List(3,4), "input2").lift(2).reportAsString("i2")
+    val tupled = ^(n, n2, "tupled")((_, _)).map(identity).reportAsString("t")
     val cg: CGraph = node.buildCGraph(tupled, _ => null)
     val channel1 = SetActionUnsafe("c1", cg, Set("i"))
     val channel2 = SetActionUnsafe("c2", cg, Set("i2"))
@@ -67,10 +67,10 @@ class SimpleActionEvaluatorTest extends Specification {
   }
 
   "two nodes and unrelated" >>  {
-    val n = pure(List(1,2), "input").lift(2).map(identity).addColumn("i")
-    val n2 = pure(List(3,4), "input2").lift(2).addColumn("i2")
-    val n3 = pure(List('a,'b), "input3").addColumn("i3")
-    val tupled = ^^(n, n2, n3, "tupled")((_, _,_)).map(t => t._1 -> t._2).addColumn("t")
+    val n = pure(List(1,2), "input").lift(2).map(identity).reportAsString("i")
+    val n2 = pure(List(3,4), "input2").lift(2).reportAsString("i2")
+    val n3 = pure(List('a,'b), "input3").reportAsString("i3")
+    val tupled = ^^(n, n2, n3, "tupled")((_, _,_)).map(t => t._1 -> t._2).reportAsString("t")
     val cg: CGraph = node.buildCGraph(tupled, _ => null)
     val channel1 = SetActionUnsafe("c1", cg, Set("i"))
     val channel2 = SetActionUnsafe("c2", cg, Set("i2"))

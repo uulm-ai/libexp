@@ -11,7 +11,7 @@ class SyntaxTest extends Specification {
   "whole experiment" >> {
     val inInt = intInput("foo", "")
     val inInt2 = intInput("foo2", "")
-    val result = ^(inInt,inInt2)(_ * _).addColumn("r",_.toString)
+    val result = ^(inInt,inInt2)(_ * _).report("r",_.toString)
     val buffer = new ByteArrayOutputStream(1000)
     exp.application.runStandaloneExperiment(result, "foo", Array("--foo","2","--foo2","3"), out = new PrintStream(buffer))
     buffer.close()
