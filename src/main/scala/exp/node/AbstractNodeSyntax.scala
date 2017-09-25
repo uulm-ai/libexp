@@ -13,10 +13,13 @@ object Table{
 
 trait Reportable[A]{
   def report(a: A): String
+  def comap[B](f: B => A): Reportable[B] = x => report(f(x))
 }
 object Reportable {
+  def by[A,B: Reportable](f: A => B): Reportable[A] = implicitly[Reportable[B]].comap(f)
+
   implicit object StringReporter extends Reportable[String]{
-    override def report(a: String): String = a
+    override def report(a: String): String = s""""${a.replace('\t',' ')}""""
   }
   implicit object IntReporter extends Reportable[Int]{
     override def report(a: Int): String = a.toString
@@ -26,6 +29,9 @@ object Reportable {
   }
   implicit object DoubleReporter extends Reportable[Double]{
     override def report(a: Double): String = a.toString
+  }
+  implicit object FloatReporter extends Reportable[Float]{
+    override def report(a: Float): String = a.toString
   }
   implicit object BooleanReporter extends Reportable[Boolean]{
     override def report(a: Boolean): String = a.toString
@@ -60,14 +66,14 @@ trait AbstractNodeSyntax extends cats.CartesianArityFunctions { outer =>
     "the set of RNG seeds to use",
     "n:m for the range `n` to `m`",
     Some(Seq(1))
-  ), 100, "base.seed").report("base.seed", _.toString)
+  ), 100, "base.seed").reportAs("base.seed")
 
   def seed(name: String): N[Long] = baseSeed.map(s => (s,name).hashCode, name)
   def cliSeq[T](name: String,
                 parser: exp.cli.Read[Seq[T]],
                 description: String,
                 format: String,
-                default: Option[Seq[T]]): N[T] = cli(name,parser,description,format,default).lift(1,s"$name.lifted")
+                default: Option[Seq[T]]): N[T] = cli(s"cli.$name",parser,description,format,default).lift(1,s"$name.lifted")
   def fromSeq[T](xs: Seq[T], name: String): N[T] = lift(pure(xs, name), xs.size.toDouble, s"$name.lifted")
 
   def ^[T1,T2,R](n1: N[T1], n2: N[T2], name: String = "", effort: Effort = Effort.low)(f: (T1,T2) => R): N[R] =
