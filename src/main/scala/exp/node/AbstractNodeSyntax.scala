@@ -73,7 +73,7 @@ trait AbstractNodeSyntax extends cats.CartesianArityFunctions { outer =>
                 parser: exp.cli.Read[Seq[T]],
                 description: String,
                 format: String,
-                default: Option[Seq[T]]): N[T] = cli(s"cli.$name",parser,description,format,default).lift(1,s"$name.lifted")
+                default: Option[Seq[T]]): N[T] = cli(name,parser,description,format,default).lift(1,s"$name.lifted")
   def fromSeq[T](xs: Seq[T], name: String): N[T] = lift(pure(xs, name), xs.size.toDouble, s"$name.lifted")
 
   def ^[T1,T2,R](n1: N[T1], n2: N[T2], name: String = "", effort: Effort = Effort.low)(f: (T1,T2) => R): N[R] =

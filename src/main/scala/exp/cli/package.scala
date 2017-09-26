@@ -20,7 +20,7 @@ package object cli extends StrictLogging {
   implicit def liftCliOpt[T](co: CliOpt[T]): CLI[T] = FreeApplicative.lift(co)
 
   def extractOptions[T](cf: CLI[T]): List[CliOpt[_]] = {
-    cf.analyze(new ~>[CliOpt, ({type L[X] = List[CliOpt[_]]})#L] {
+    cf.analyze(new ~>[CliOpt, Lambda[X => List[CliOpt[_]]]] {
       override def apply[A](fa: CliOpt[A]): List[CliOpt[_]] = List(fa)
     }).distinct.sortBy(_.long)
   }

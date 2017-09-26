@@ -30,7 +30,7 @@ case class Pure[+T](value: T, name: String) extends SourceNode[T]{
   override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq.empty
 }
 case class Cli[+T](parser: CliOpt[T]) extends SourceNode[T]{
-  override def name: String = parser.long
+  override def name: String = s"cli.${parser.long}"
   override def predecessors: IndexedSeq[Node[Any]] = IndexedSeq.empty
 }
 
