@@ -33,8 +33,9 @@ object Reportable {
   implicit object FloatReporter extends Reportable[Float]{
     override def report(a: Float): String = a.toString
   }
+  /** For compatibility with R, this capitalizes 'true' and 'false'. */
   implicit object BooleanReporter extends Reportable[Boolean]{
-    override def report(a: Boolean): String = a.toString
+    override def report(a: Boolean): String = if(a) "TRUE" else "FALSE"
   }
 }
 
