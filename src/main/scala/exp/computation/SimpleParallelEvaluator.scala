@@ -15,7 +15,7 @@ import scala.concurrent.{Await, Future}
 object SimpleParallelEvaluator extends StrictLogging {
   def evalStream(computation: CGraph, desiredParallelism: Int = Runtime.getRuntime.availableProcessors * 2): Iterator[Valuation] = {
 
-    implicit val order = Ordering.by((e: CNode) => (
+    implicit val order: Ordering[CNode] = Ordering.by((e: CNode) => (
       e.isInstanceOf[CedgeND],
       Some(e).collect{case nd: CedgeND => nd.estimatedLength}.getOrElse(1d)
     ))

@@ -21,7 +21,7 @@ package object application {
       Read.fromParser(parsers.pPosInt),
       "the maximum number of computations started simultaneously",
       None,
-      Some(1),
+      Some(4),
       "positive integer")
 
     val cliWithOpts: CLI[(CGraph,Int)] = Cartesian.tuple2(cli,parallelismOpt)
@@ -38,7 +38,9 @@ package object application {
       runCliFree(args,cliWithOpts).map{ case (cg, parallelism) =>
         (cg.reports,SimpleParallelEvaluator.evalStream(cg, parallelism))
       }.fold(
-        es => System.err.println("encountered error during parse:\n\t- " + es),
+        //treat error
+        es => System.err.println("error while parsing command line:\n\t- " + es),
+        //run experiment
         {
           case (reports,vals) =>
             val sortedReps = reports.sortBy(_.name)
