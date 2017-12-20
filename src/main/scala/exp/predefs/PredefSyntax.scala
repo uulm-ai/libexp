@@ -50,4 +50,9 @@ trait PredefSyntax  {
       default = Some(defaults).filterNot(_.isEmpty)
     )
       .reportAs(name)
+
+  /** Create an enumeration parameter by supplying some objects and a `toString` method. */
+  def enum[T](name: String, description: String, values: Seq[T], toString: T => String = (_: T).toString, defaults: Seq[T]): N[T] =
+    stringEnum(name, values.map(_.toString), description, defaults.map(toString))
+      .map(values.map(v => toString(v) -> v).toMap, s"$name.map.from.cli-string")
 }
