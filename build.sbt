@@ -22,7 +22,7 @@ homepage := Some(url("https://github.com/uulm-ai/libexp"))
 
 licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
 
-scalaVersion := "2.12.1"
+scalaVersion := "2.12.4"
 
 libraryDependencies ++= Seq(
   "com.lihaoyi" %% "fastparse" % "0.4.2",
