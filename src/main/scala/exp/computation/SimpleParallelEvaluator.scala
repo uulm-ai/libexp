@@ -22,7 +22,7 @@ object SimpleParallelEvaluator extends StrictLogging {
 
     val topoOrder: List[CNode] = exp.util.topoSort(computation.nodeClosure)
 
-    logger.info("topological node order used for computation: " + topoOrder.map(_.name).mkString(","))
+    logger.debug("topological node order used for computation: " + topoOrder.map(_.name).mkString(","))
 
     val remainingCost = topoOrder.map{
       case CedgeND(_,_,_,_,cpuInit,cpuItem) => cpuInit + cpuItem
@@ -44,7 +44,7 @@ object SimpleParallelEvaluator extends StrictLogging {
 
     val (parEdges: Seq[CNode], seqEdges: Seq[CNode]) = topoOrder.splitAt(parWork.indexOf(maxWork))
 
-    logger.info(s"found parallelization scheme:\n\tparallel:\t${parEdges.map(_.name).mkString(",")}\n\tsequential:\t${seqEdges.map(_.name).mkString(",")}")
+    logger.debug(s"found parallelization scheme:\n\tparallel:\t${parEdges.map(_.name).mkString(",")}\n\tsequential:\t${seqEdges.map(_.name).mkString(",")}")
 
     def evaluate(n: CNode, valuation: Valuation): Stream[Valuation] = n match {
       case CedgeND(ins,_,f,_,_,_) =>
