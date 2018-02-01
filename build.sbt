@@ -25,7 +25,7 @@ licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
 scalaVersion := "2.12.4"
 
 libraryDependencies ++= Seq(
-  "com.lihaoyi" %% "fastparse" % "0.4.2",
+  "com.lihaoyi" %% "fastparse" % "1.0.0",
   "org.typelevel" %% "cats" % "0.9.0",
   "org.typelevel" % "cats-free_2.12" % "0.9.0",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
